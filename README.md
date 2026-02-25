@@ -12,6 +12,49 @@
 
 ---
 
+### 📥 下载与使用
+
+您可以按照以下步骤在 Linux 服务器或 Linux 工作站上快速部署：
+
+1. **访问平台**：登录 **GMSSH 桌面**（在线版地址：[https://web.gmssh.com](https://web.gmssh.com)）。
+2. **获取客户端**：下载并安装 GMSSH 客户端 [https://www.gm.cn/client-download](https://www.gm.cn/client-download)。
+3. **一键安装**：进入 **应用中心**，搜索 **“GMClaw”**，即可实现开箱即用。
+<img width="1457" height="910" alt="image" src="https://github.com/user-attachments/assets/60ad00e5-4a4a-488f-bc2a-f3b3598d7515" />
+
+---
+
+### ⚡️ 源码下载与开发
+
+如需进行二次开发或源码调试，请参考以下流程：
+
+#### 1. 克隆仓库
+
+```bash
+git clone https://github.com/GMSSH/OpenClaw-Turbo
+cd OpenClaw-Turbo
+
+```
+
+#### 2. 后端开发 (Backend)
+
+```bash
+cd backend
+go mod tidy
+go run main.go
+
+```
+
+#### 3. 前端开发 (Frontend)
+
+```bash
+cd ../frontend  # 假设前端目录名为 frontend 或 pnpm 所在目录
+pnpm install
+pnpm run dev
+
+```
+参考[GMSSH开发者文档](https://doc-dev.gmssh.com/)在GM环境中启动调试
+---
+
 ### ✨ 核心特性
 
 #### 📦 极简部署 · 环境自愈
@@ -32,7 +75,7 @@
 * **钉钉 / 飞书**
 * *即将支持：WhatsApp、Telegram、iMessage*
 
-
+---
 
 #### 🧠 能力与技能中心 (Skills)
 
@@ -73,3 +116,10 @@
 * **[openclaw-zh](https://github.com/dongshuyan/openclaw-zh)**：提供了高质量的编译源代码及汉化支持，为本项目的基础设施搭建提供了重要参考。
 
 ---
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=GMSSH/OpenClaw-Turbo&type=date&legend=top-left)](https://www.star-history.com/#GMSSH/GMSSH&type=date&legend=top-left)
+---
+*Happy Coding!*
+
+*The GMSSH Team*
