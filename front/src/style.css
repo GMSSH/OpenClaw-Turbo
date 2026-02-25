@@ -1,0 +1,164 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+    width: 100%;
+    height: 100%;
+    background: var(--jm-bg-color);
+    color: var(--jm-accent-7);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+        'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
+        sans-serif;
+    font-size: var(--jm-font-size-14);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--jm-accent-3);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--jm-accent-4);
+}
+
+/* 全局动画 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.fade-in-up {
+    animation: none;
+}
+
+/* ===== Naive UI 全局主题色覆盖：#5569FA ===== */
+
+/* 日期选择器 — 选中日期高亮（边框样式，避免覆盖文字） */
+.n-date-panel-date--selected .n-date-panel-date__trigger {
+    background: rgba(85, 105, 250, 0.12) !important;
+    border-radius: 8px !important;
+    box-shadow: inset 0 0 0 2px #5569FA !important;
+}
+
+.n-date-panel-date--selected .n-date-panel-date__date {
+    color: #5569FA !important;
+    font-weight: 600 !important;
+}
+
+.n-date-panel-date--current .n-date-panel-date__trigger {
+    border-color: #5569FA !important;
+}
+
+/* 日期选择器 「此刻」「确认」按钮 */
+.n-date-panel .n-button--primary-type {
+    background-color: #5569FA !important;
+    border-color: #5569FA !important;
+    border-radius: 8px !important;
+}
+
+.n-date-panel .n-button--primary-type:hover {
+    background-color: #6b7cfb !important;
+    border-color: #6b7cfb !important;
+}
+
+/* Modal 内所有 primary 按钮（创建任务 / 保存修改） */
+.n-modal-container .n-button--primary-type {
+    background-color: #5569FA !important;
+    border-color: #5569FA !important;
+    border-radius: 8px !important;
+}
+
+.n-modal-container .n-button--primary-type:hover {
+    background-color: #6b7cfb !important;
+    border-color: #6b7cfb !important;
+}
+
+/* ===== 全局刷新按钮 ===== */
+.refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--jm-accent-2);
+    background: transparent;
+    color: var(--jm-accent-5);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.refresh-btn:hover:not(:disabled) {
+    border-color: var(--jm-primary-2);
+    color: var(--jm-primary-2);
+    background: rgba(var(--jm-primary-1-rgb), 0.06);
+}
+
+.refresh-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.spinning {
+    animation: spin-refresh 0.8s linear infinite;
+}
+
+@keyframes spin-refresh {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

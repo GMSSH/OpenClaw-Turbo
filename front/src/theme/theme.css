@@ -1,0 +1,57 @@
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+:root[data-theme='dark'],
+:root {
+  /* 主色 */
+  --jm-theme: rgba(0, 0, 0, 0.3);
+  --jm-primary-1: #5772FF;
+  --jm-primary-2: #708BFF;
+  --jm-primary-3: #A8BDFF;
+  --jm-primary-4: #000000;
+
+  /* 辅助色 */
+  --jm-accent-1: #222222;
+  --jm-accent-2: #393939;
+  --jm-accent-3: #555555;
+  --jm-accent-4: #727272;
+  --jm-accent-5: #afafaf;
+  --jm-accent-6: #d2d2d2;
+  --jm-accent-7: #ffffff;
+
+  /* RGB 变量 */
+  --jm-theme-rgb: 16, 16, 16;
+  --jm-primary-1-rgb: 87, 114, 255;
+  --jm-primary-2-rgb: 112, 139, 255;
+  --jm-primary-3-rgb: 168, 189, 255;
+  --jm-primary-4-rgb: 0, 0, 0;
+  --jm-accent-1-rgb: 34, 34, 34;
+  --jm-accent-2-rgb: 57, 57, 57;
+  --jm-accent-3-rgb: 85, 85, 85;
+  --jm-accent-4-rgb: 114, 114, 114;
+  --jm-accent-5-rgb: 175, 175, 175;
+  --jm-accent-6-rgb: 210, 210, 210;
+  --jm-accent-7-rgb: 255, 255, 255;
+
+  /* 状态色 */
+  --jm-error-color: #f04d3c;
+  --jm-success-color: #3bad5b;
+  --jm-warning-color: #f4bf50;
+
+  /* 字体 */
+  --jm-font-size-12: 12px;
+  --jm-font-size-14: 14px;
+  --jm-font-size-16: 16px;
+  --jm-font-size-18: 18px;
+
+  /* 背景 */
+  --jm-bg-color: #101010;
+  --jm-system-hover-color: rgba(255, 255, 255, 0.08);
+}
