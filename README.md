@@ -1,2 +1,75 @@
-# OpenClaw-Turbo
-🚀OpenClaw-Turbo 是一个专为 OpenClaw 打造的全能生产级管理面板。🔥OpenClaw-Turbo is an all-in-one, production-grade management dashboard designed exclusively for the OpenClaw ecosystem. 它彻底终结了 OpenClaw 在国内环境下安装难、配置杂、无界面的痛点，通过全方位的可视化操作，让每一位开发者都能秒级构建属于自己的 AI 军团。
+# 🚀 OpenClaw-Turbo
+
+**🦞 你的私人 AI 助手 (Personal AI Assistant) | 建立在 [GMSSH](https://web.gmssh.com) 生态基础上的全能管理应用**
+
+---
+
+**更安全 · 更懂中文 · 适配国内 IM 的基础设施**
+
+**OpenClaw-Turbo** 极大地简化了 AI 智能体的部署与管理流程。无论你是追求极致性能的源码编译控，还是偏好容器化的 DevOps 工程师，OpenClaw-Turbo 都能为你提供直观的图形化界面，让你彻底告别繁琐的终端配置。
+
+[🌐 官网](https://www.gmssh.com) • [English README](https://www.google.com/search?q=%23)
+
+---
+
+### ✨ 核心特性
+
+#### 📦 极简部署 · 环境自愈
+
+* **双模安装**：完美支持 **Docker 容器化部署** 与 **原生 Shell 脚本编译部署**。
+* **自动环境检测**：内置环境预检逻辑，自动识别并补全服务器缺失的依赖环境，确保安装流程零报错。
+
+#### 🛠️ 可视化配置中心
+
+* **实时控制台**：一键监控网关状态（Token 认证、LAN 绑定模式）、运行时间及 Web/通讯端口信息。
+* **AI 模型管理**：图形化配置 **DeepSeek-Chat** 等模型，直观修改 API Key、128K 上下文窗口及输出限制。
+* **Agent 人格管理**：内置编辑器，可视化编辑 **Identity (我是谁)**、**User (你是谁)** 及 **Soul (怎么聊)**，深度定制 AI 的身份、记忆与灵魂。
+
+#### 🔗 多渠道社交接入（可视化）
+
+* 无需修改配置文件，通过图形化界面即可快速接入主流社交平台：
+* **企业微信 / QQ 机器人**
+* **钉钉 / 飞书**
+* *即将支持：WhatsApp、Telegram、iMessage*
+
+
+
+#### 🧠 能力与技能中心 (Skills)
+
+* **内置技能管理**：直观开启或安装 `1password`、`apple-notes`、`clawhub` 等 51 项内置技能。
+* **技能市场**：支持从社区市场搜索（如 `github`, `video`, `notion`）并一键安装扩展能力。
+
+#### 📅 定时任务 (Cron)
+
+* **可视化调度**：支持通过 **Cron 表达式**、固定间隔或一次性触发创建自动化任务。
+* **多样化请求**：可设置定时发送文本指令（如早间摘要、定时清理）或触发特定 Agent 行为。
+
+---
+
+### 🖥️ 界面预览
+
+ **控制台**  运行状态、模型参数与网关网络一目了然 
+<img width="1458" height="924" alt="image" src="https://github.com/user-attachments/assets/e762e4fa-0dd2-4a29-9de2-629542cd231a" />
+ **三方平台接入**  一键接入QQ、企业微信、钉钉、飞书
+<img width="1459" height="882" alt="image" src="https://github.com/user-attachments/assets/bcbdecb2-f62c-45e0-a28e-4a72b9f52a67" />
+ **人格管理**  像写文档一样打磨 AI 的身份标签 
+<img width="1464" height="915" alt="image" src="https://github.com/user-attachments/assets/b16ad2fd-dd95-4a83-a462-900998038411" />
+ **能力中心**  内置 51+ 种技能点击即用，支持市场扩展 
+<img width="1461" height="915" alt="image" src="https://github.com/user-attachments/assets/6f1e44bc-3b0c-4cf5-8e38-40d383654f5c" />
+ **定时任务**  强大的自动化任务编辑弹窗，支持周期性指令触发 
+<img width="1459" height="920" alt="image" src="https://github.com/user-attachments/assets/86a76088-ce22-4537-96f2-4d12ef117d64" />
+
+---
+
+### 🌟 即将到来：赛博员工 (Cyber Employees)
+
+我们正在基于 **GMSSH-Openclaw 生态** 开发**“赛博员工”**模块——这是一种全新的智能体形态，旨在为企业流程部署专门化的虚拟数字员工。敬请期待！
+
+### 🙏 致谢 (Credits)
+
+本项目的顺利开发离不开开源社区的贡献，特别感谢以下优秀项目：
+
+* **[openclaw-china](https://github.com/BytePioneer-AI/openclaw-china)**：提供了优秀的 IM 插件支持，极大丰富了国内社交平台的接入能力。
+* **[openclaw-zh](https://github.com/dongshuyan/openclaw-zh)**：提供了高质量的编译源代码及汉化支持，为本项目的基础设施搭建提供了重要参考。
+
+---
