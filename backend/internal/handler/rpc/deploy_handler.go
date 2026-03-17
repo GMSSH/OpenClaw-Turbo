@@ -204,3 +204,8 @@ func (s *Server) GetRecentLogs(req *gsock.Request) (any, error) {
 	}
 	return service.NewDeployService().GetRecentLogs(params)
 }
+
+// GetOpenClawConfigDirPath 获取 OpenClaw 配置目录路径
+func (s *Server) GetOpenClawConfigDirPath(req *gsock.Request) (any, error) {
+	return service.NewDeployService().GetOpenClawConfigDirPath(), nil
+}

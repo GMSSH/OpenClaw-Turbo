@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createDiscreteApi } from 'naive-ui'
 import App from './App.vue'
 import router from './router'
+import i18n, { applyGmLang } from './i18n/index.js'
 import './theme/theme.css'
 import './style.css'
 import '@fontsource/jetbrains-mono/400.css'
@@ -34,8 +35,23 @@ window.$dialog = dialog
             }
         }
 
+        // Apply host language setting before mounting
+        applyGmLang()
+
         const app = createApp(App)
+
+        // Vue 全局错误处理：仅记录日志，不打断用户界面
+        app.config.errorHandler = (err, instance, info) => {
+            console.error('[GMClaw] Vue Error:', info, err)
+        }
+        window.addEventListener('unhandledrejection', (event) => {
+            // 忽略 vue-i18n 的内部警告
+            if (event.reason && String(event.reason).includes('[intlify]')) return
+            console.error('[GMClaw] Unhandled Rejection:', event.reason)
+        })
+
         app.use(router)
+        app.use(i18n)
         app.mount('#app')
 
         // 生命周期：应用被宿主关闭时卸载

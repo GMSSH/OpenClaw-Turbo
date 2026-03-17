@@ -62,6 +62,15 @@ func (s *Server) ListBuiltinSkills(req *gsock.Request) (any, error) {
 	return service.NewSkillService().ListBuiltinSkills()
 }
 
+// ToggleBuiltinSkill 通过 WS 网关启用/禁用内置技能
+func (s *Server) ToggleBuiltinSkill(req *gsock.Request) (any, error) {
+	var args map[string]any
+	if err := rpcutil.ParseParams(req, &args); err != nil {
+		return nil, err
+	}
+	return service.NewSkillService().ToggleBuiltinSkill(args)
+}
+
 // InstallBuiltinSkill 安装内置技能
 func (s *Server) InstallBuiltinSkill(req *gsock.Request) (any, error) {
 	var args map[string]any
@@ -122,4 +131,32 @@ func (s *Server) SaveModelsConfig(req *gsock.Request) (any, error) {
 		return nil, err
 	}
 	return service.NewModelService().SaveModelsConfig(args)
+}
+
+// GetSkillsDir 获取技能目录路径
+func (s *Server) GetSkillsDir(req *gsock.Request) (any, error) {
+	return service.NewSkillService().GetSkillsDir(), nil
+}
+
+// ListRecommendedSkills 获取推荐技能列表（来自 skill.json + scripts/）
+func (s *Server) ListRecommendedSkills(req *gsock.Request) (any, error) {
+	return service.NewSkillService().ListRecommendedSkills()
+}
+
+// InstallRecommendedSkill 安装推荐技能（解压 zip 到 skills 目录）
+func (s *Server) InstallRecommendedSkill(req *gsock.Request) (any, error) {
+	var args map[string]any
+	if err := rpcutil.ParseParams(req, &args); err != nil {
+		return nil, err
+	}
+	return service.NewSkillService().InstallRecommendedSkill(args)
+}
+
+// UninstallRecommendedSkill 卸载推荐技能（删除 skills 目录中对应文件夹）
+func (s *Server) UninstallRecommendedSkill(req *gsock.Request) (any, error) {
+	var args map[string]any
+	if err := rpcutil.ParseParams(req, &args); err != nil {
+		return nil, err
+	}
+	return service.NewSkillService().UninstallRecommendedSkill(args)
 }

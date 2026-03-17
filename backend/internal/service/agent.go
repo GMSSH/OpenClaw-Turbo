@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"guanxi/eazy-claw/internal/dto"
@@ -160,8 +161,18 @@ func agentsJSONPath() string {
 	return filepath.Join(getWorkspaceDir(), "agents.json")
 }
 
-// agentDir 获取指定 Agent 的目录
+// agentDir 获取指定 Agent 的目录（宿主机路径，用于文件读写）
 func agentDir(id string) string {
+	return filepath.Join(getWorkspaceDir(), "agents", id)
+}
+
+// agentWorkspaceDir 获取传给 openclaw CLI 的 --workspace 路径
+// Docker 模式下返回容器内路径，local 模式返回宿主机路径
+func agentWorkspaceDir(id string) string {
+	if getDeployMode() == "docker" {
+		// Docker 容器内 openclaw 的 home 固定为 /home/node/.openclaw
+		return "/home/node/.openclaw/workspace/agents/" + id
+	}
 	return filepath.Join(getWorkspaceDir(), "agents", id)
 }
 
@@ -343,9 +354,9 @@ func (s *AgentService) CreateAgent(req dto.CreateAgentReq) (*dto.AgentInfo, erro
 		return nil, fmt.Errorf("创建 Agent 目录失败: %v", err)
 	}
 	for name, content := range defaultContents {
-		// 子 Agent 的 AGENTS.md 用精简模板
+		// 子 Agent 的 AGENTS.md 用 SOP 模板（不再用旧"团队名录"）
 		if name == "AGENTS" && agent.Role != "main" && agent.ID != "main" {
-			content = "# 团队名录\n\n当前无下属 Agent。\n"
+			content = "# 身份与标准作业程序（SOP）\n\n> 请在左侧菜单点击【编辑详情】，在\"核心指令/SOP\"模块中填写该专员的职责定义和标准作业流程。\n"
 		}
 		filename := validAgentFiles[name]
 		if err := os.WriteFile(filepath.Join(dir, filename), []byte(content), 0644); err != nil {
@@ -381,15 +392,31 @@ func (s *AgentService) CreateAgent(req dto.CreateAgentReq) (*dto.AgentInfo, erro
 		}
 	}
 
-	// 注册到 OpenClaw（主控已内置，不需要注册）
+	// syncOpenClawConfig 会将 agent 写入 openclaw.json agents.list
+	// 无需再调用 openclaw CLI，避免启动 Node.js 进程导致的 3~10s 延迟
+
+	agents = append(agents, agent)
+
+	// 自动将新 Agent 加入 main 的 AllowAgents（让 openclaw.json 能生成 subagents.allowAgents）
 	if agent.Role != "main" && agent.ID != "main" {
-		log.Printf("[DEBUG] 注册 OpenClaw Agent: name=%s, role=%s, dir=%s", agent.Name, agent.Role, dir)
-		if err := registerOpenClawAgent(agent.Name, dir, agent.Model); err != nil {
-			log.Printf("[WARN] 注册 OpenClaw Agent 失败: %v (Agent 文件已创建，可手动注册)", err)
+		for i := range agents {
+			if agents[i].ID == "main" || agents[i].Role == "main" {
+				// 去重追加
+				alreadyIn := false
+				for _, id := range agents[i].AllowAgents {
+					if id == agent.ID {
+						alreadyIn = true
+						break
+					}
+				}
+				if !alreadyIn {
+					agents[i].AllowAgents = append(agents[i].AllowAgents, agent.ID)
+				}
+				break
+			}
 		}
 	}
 
-	agents = append(agents, agent)
 	if err := writeAgentsList(agents); err != nil {
 		return nil, fmt.Errorf("保存 Agent 列表失败: %v", err)
 	}
@@ -430,6 +457,8 @@ func (s *AgentService) UpdateAgent(req dto.UpdateAgentReq) (*dto.AgentInfo, erro
 				agents[i].Model = req.Model
 			}
 			agents[i].ParentID = req.ParentID
+			// 保存 AllowAgents（允许传空列表清除）
+			agents[i].AllowAgents = req.AllowAgents
 			agents[i].UpdatedAt = time.Now().Format(time.RFC3339)
 			updated = &agents[i]
 			break
@@ -476,6 +505,16 @@ func (s *AgentService) DeleteAgent(req dto.DeleteAgentReq) (map[string]any, erro
 		if a.ParentID == req.ID {
 			a.ParentID = ""
 		}
+		// 从 main 的 AllowAgents 中移除被删 Agent
+		if a.ID == "main" || a.Role == "main" {
+			var filtered []string
+			for _, id := range a.AllowAgents {
+				if id != req.ID {
+					filtered = append(filtered, id)
+				}
+			}
+			a.AllowAgents = filtered
+		}
 		newAgents = append(newAgents, a)
 	}
 
@@ -483,21 +522,8 @@ func (s *AgentService) DeleteAgent(req dto.DeleteAgentReq) (map[string]any, erro
 		return nil, fmt.Errorf("Agent 不存在: %s", req.ID)
 	}
 
-	// 从 OpenClaw 注销
-	var agentName string
-	for _, a := range agents {
-		if a.ID == req.ID {
-			agentName = a.Name
-			break
-		}
-	}
-	if agentName != "" {
-		if output, err := runClawCmd("agents", "delete", agentName, "--force"); err != nil {
-			log.Printf("[WARN] 从 OpenClaw 注销 Agent 失败: %s: %s", err, string(output))
-		} else {
-			log.Printf("[INFO] OpenClaw Agent 已注销: %s", agentName)
-		}
-	}
+	// syncOpenClawConfig 会从 agents.list 中移除该 Agent，openclaw 重载后自动生效
+	log.Printf("[INFO] Agent %s 已从列表移除，将通过 syncOpenClawConfig 同步配置", req.ID)
 
 	// 删除 Agent 工作区目录
 	dir := agentDir(req.ID)
@@ -825,22 +851,25 @@ func syncOpenClawConfig(agents []dto.AgentInfo) {
 		agentsCfg = map[string]any{}
 	}
 
-	// 收集专员
+	// 收集专员（同时构建 specialistEntries 用于 openclaw.json，和 specialists 用于 AGENTS.md/allowAgents）
 	var specialistEntries []any
+	var specialists []dto.AgentInfo
 	for _, a := range agents {
 		if a.ID == "main" || a.Role == "main" {
 			continue
 		}
+		specialists = append(specialists, a)
 		entry := map[string]any{
 			"id":   a.ID,
 			"name": a.Name,
 		}
-		dir := agentDir(a.ID)
-		entry["workspace"] = dir
 		if getDeployMode() == "local" {
+			entry["workspace"] = agentDir(a.ID)
 			entry["agentDir"] = filepath.Join(getOpenClawConfigDir(), "agents", a.ID, "agent")
 		} else {
-			entry["agentDir"] = filepath.Join(getDataDir(), "agents", a.ID, "agent")
+			// Docker 模式：容器内固定路径
+			entry["workspace"] = "/home/node/.openclaw/workspace/agents/" + a.ID
+			entry["agentDir"] = "/home/node/.openclaw/agents/" + a.ID + "/agent"
 		}
 		if a.Model != "" {
 			entry["model"] = a.Model
@@ -849,13 +878,42 @@ func syncOpenClawConfig(agents []dto.AgentInfo) {
 	}
 
 	if len(specialistEntries) > 0 {
-		// 有专员：list = [main] + specialists
-		agentList := []any{map[string]any{"id": "main"}}
+		// 有专员：直接从所有专员构建 allowAgents（不依赖 main.AllowAgents 字段，防止历史数据缺失）
+		mainEntry := map[string]any{"id": "main"}
+		allowList := make([]any, 0, len(specialists))
+		for _, sp := range specialists {
+			allowList = append(allowList, sp.ID)
+		}
+		mainEntry["subagents"] = map[string]any{
+			"allowAgents": allowList,
+		}
+		agentList := []any{mainEntry}
 		agentList = append(agentList, specialistEntries...)
 		agentsCfg["list"] = agentList
+
+		// 同步 agents.json 中 main 的 AllowAgents，保持数据一致
+		for i := range agents {
+			if agents[i].ID == "main" || agents[i].Role == "main" {
+				agents[i].AllowAgents = make([]string, 0, len(specialists))
+				for _, sp := range specialists {
+					agents[i].AllowAgents = append(agents[i].AllowAgents, sp.ID)
+				}
+				break
+			}
+		}
+		if err := writeAgentsList(agents); err != nil {
+			log.Printf("[WARN] syncOpenClawConfig: 回写 agents.json AllowAgents 失败: %v", err)
+		}
 	} else {
-		// 只剩 main：删掉 list 字段
+		// 只剩 main：删掉 list 字段，也清空 AllowAgents
 		delete(agentsCfg, "list")
+		for i := range agents {
+			if agents[i].ID == "main" || agents[i].Role == "main" {
+				agents[i].AllowAgents = nil
+				break
+			}
+		}
+		_ = writeAgentsList(agents)
 	}
 	config["agents"] = agentsCfg
 
@@ -865,14 +923,7 @@ func syncOpenClawConfig(agents []dto.AgentInfo) {
 		log.Printf("[INFO] syncOpenClawConfig: agents.list 已更新 (%d specialists), agentToAgent (%d agents)", len(specialistEntries), len(agentIDs))
 	}
 
-	// 2. 自动生成 main 的 AGENTS.md 团队名录
-	var specialists []dto.AgentInfo
-	for _, a := range agents {
-		if a.Role != "main" {
-			specialists = append(specialists, a)
-		}
-	}
-
+	// 2. 自动生成 main 的 AGENTS.md 团队名录（specialists 已在上方收集）
 	md := "# 团队名录\n\n你是项目经理（主控 Agent），负责接待用户的所有需求并协调团队。\n\n"
 	if len(specialists) == 0 {
 		md += "> 当前暂无子 Agent，所有任务由你独立完成。\n"
@@ -906,6 +957,109 @@ func syncOpenClawConfig(agents []dto.AgentInfo) {
 		log.Printf("[WARN] syncOpenClawConfig: 写入 main AGENTS.md 失败: %v", err)
 	} else {
 		log.Printf("[INFO] syncOpenClawConfig: main AGENTS.md 已更新 (%d specialists)", len(specialists))
+	}
+
+	// 3. 为每个专员写其自己的 AGENTS.md 和 TOOLS.md
+	for _, sp := range specialists {
+		spDir := agentDir(sp.ID)
+		if err := os.MkdirAll(spDir, 0755); err != nil {
+			continue
+		}
+
+		// === AGENTS.md：子 Agent 的身份层 + SOP ===
+		// 注意：子 Agent 被 Spawn 时只加载 AGENTS.md 和 TOOLS.md，
+		// 因此这里必须完整描述其身份、能力边界和标准作业程序（SOP）
+		desc := sp.Description
+		if desc == "" {
+			desc = "（请在 Agent 详情中填写本专员的职责说明）"
+		}
+		spAgentsMd := fmt.Sprintf(
+			"# 身份与标准作业程序（SOP）\n\n"+
+				"## 1. 角色定义\n\n"+
+				"你是 **%s**（ID: `%s`），由主控 Agent（`main`）在执行多智能体任务时派生的专员。\n\n"+
+				"**你的核心职责：**\n"+
+				"%s\n\n"+
+				"**行为原则：**\n"+
+				"- 你的身份是**执行者**，不是决策者。专注完成派发给你的具体任务。\n"+
+				"- 禁止自行修改超出任务范围的文件或系统配置。\n"+
+				"- 任务完成后，**不要创建新的总结文件**，而是将结果追加（append）到指定的输出文件中。\n\n"+
+				"## 2. 标准作业程序（SOP）\n\n"+
+				"收到任务时，请按以下步骤执行：\n\n"+
+				"1. **理解任务**：仔细阅读主控传入的任务描述，明确输入参数和预期输出格式。\n"+
+				"2. **执行操作**：使用你可用的工具完成任务（参见 TOOLS.md）。\n"+
+				"3. **写入结果**：将执行结果写入主控指定的文件路径，若无指定则写入工作区根目录下的 `OUTPUT.md`。\n"+
+				"4. **完成回报**：任务结束时，用以下格式输出结论供主控读取：\n\n"+
+				"```\n"+
+				"[DONE] 任务：[任务简述]\n"+
+				"结果：[简要结论，1-3行]\n"+
+				"输出文件：[结果写入的文件路径]\n"+
+				"```\n\n"+
+				"## 3. 异常处理\n\n"+
+				"如果遇到无法处理的情况：\n"+
+				"- 立即停止，**不要猜测**。\n"+
+				"- 用以下格式输出错误信息：\n\n"+
+				"```\n"+
+				"[FAILED] 任务：[任务简述]\n"+
+				"原因：[明确说明失败原因]\n"+
+				"需要：[说明需要主控补充的信息]\n"+
+				"```\n",
+			sp.Name, sp.ID, desc,
+		)
+
+		spAgentsMdPath := filepath.Join(spDir, "AGENTS.md")
+		// 保护用户已自定义的 SOP：只对未配置或旧格式的文件进行覆盖
+		existingAgents, readAgentsErr := os.ReadFile(spAgentsMdPath)
+		existingStr := string(existingAgents)
+		isDefaultAgents := readAgentsErr != nil ||
+			len(existingAgents) < 10 || // 空/极短文件
+			existingStr == defaultContents["AGENTS"] || // 默认占位模板
+			strings.Contains(existingStr, "请在左侧菜单点击【编辑详情】") || // CreateAgent 放的新占位
+			(strings.Contains(existingStr, "团队名录") && !strings.Contains(existingStr, "SOP")) // 旧"团队名录"格式
+		if isDefaultAgents {
+			if err := os.WriteFile(spAgentsMdPath, []byte(spAgentsMd), 0644); err != nil {
+				log.Printf("[WARN] syncOpenClawConfig: 写入 %s AGENTS.md 失败: %v", sp.Name, err)
+			} else {
+				log.Printf("[INFO] syncOpenClawConfig: %s AGENTS.md (SOP) 已生成", sp.Name)
+			}
+		}
+
+		// === TOOLS.md：子 Agent 可用的工具清单 ===
+		spToolsMd := fmt.Sprintf(
+			"# 工具说明\n\n"+
+				"你（%s）在执行任务时可使用以下工具。\n\n"+
+				"## 核心工具\n\n"+
+				"| 工具 | 用途 | 注意事项 |\n"+
+				"|------|------|----------|\n"+
+				"| `read_file` | 读取文件内容 | 读取主控传入的输入文件或上一步的中间结果 |\n"+
+				"| `write_file` | 写入文件 | **仅在主控指定的输出路径写入**，不要随意创建新文件 |\n"+
+				"| `edit_file` | 追加/修改文件局部 | 优先使用 edit 追加到已有报告，而不是创建新文件 |\n"+
+				"| `execute_command` | 执行终端命令 | 执行前必须确认命令安全，禁止操作系统关键目录 |\n\n"+
+				"## 输出规范\n\n"+
+				"- **首选 `edit_file` 追加**：将结果追加到主控指定的汇总文件，避免文件碎片化。\n"+
+				"- **输出格式**：方便主控 Agent 直接解析，使用 `---` 分隔多个结果块。\n"+
+				"- **禁止**：未经主控指示不得删除其他 Agent 写入的内容。\n\n"+
+				"## 其他工具（按需配置）\n\n"+
+				"根据你的实际职责 **%s**，可在此添加你具体需要的工具：\n\n"+
+				"- **工具名称：** 描述\n"+
+				"- **访问方式：** SSH / API / 本地路径\n"+
+				"- **凭证：** （如需，请勿明文写入，使用环境变量引用）\n",
+			sp.Name,
+			func() string {
+				if sp.Description != "" {
+					return "（" + sp.Description + "）"
+				}
+				return ""
+			}(),
+		)
+
+		spToolsMdPath := filepath.Join(spDir, "TOOLS.md")
+		existingTools, readErr := os.ReadFile(spToolsMdPath)
+		isDefaultTools := readErr != nil || string(existingTools) == defaultContents["TOOLS"]
+		if isDefaultTools {
+			if err := os.WriteFile(spToolsMdPath, []byte(spToolsMd), 0644); err != nil {
+				log.Printf("[WARN] syncOpenClawConfig: 写入 %s TOOLS.md 失败: %v", sp.Name, err)
+			}
+		}
 	}
 }
 

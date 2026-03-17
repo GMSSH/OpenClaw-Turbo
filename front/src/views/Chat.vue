@@ -10,9 +10,9 @@
               <circle cx="12" cy="12" r="2"/>
               <path d="M16.2 7.8a5.5 5.5 0 010 8.4M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/>
             </svg>
-            消息频道
+            {{ t('channel.title') }}
           </h2>
-          <span class="header-hint">管理您的消息频道和连接</span>
+          <span class="header-hint">{{ t('channel.subtitle') }}</span>
         </div>
         <div class="header-actions">
           <button class="refresh-btn" @click="fetchChannels()" :disabled="loading" title="刷新">
@@ -23,7 +23,7 @@
               <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            添加频道
+            {{ t('channel.addChannel') }}
           </button>
         </div>
       </div>
@@ -35,8 +35,8 @@
           <!-- 已接入频道 -->
           <div v-if="channels.length > 0" class="section-block">
             <div class="section-title-row">
-              <h3 class="section-label">已接入频道</h3>
-              <span class="section-hint">点击编辑配置</span>
+              <h3 class="section-label">{{ t('channel.connectedSection') }}</h3>
+              <span class="section-hint">{{ t('channel.connectedHint') }}</span>
             </div>
             <div class="connected-grid">
               <div v-for="ch in channels" :key="ch.key" class="connected-card" @click="editChannel(ch)">
@@ -45,13 +45,13 @@
                   <div class="cc-info">
                     <span class="cc-name">{{ getChannelDisplayName(ch.key) }}</span>
                     <span class="cc-status" :class="ch.enabled ? 'on' : 'off'">
-                      <span class="cc-dot"></span>{{ ch.enabled ? '已连接' : '已禁用' }}
+                      <span class="cc-dot"></span>{{ ch.enabled ? t('channel.statusOn') : t('channel.statusOff') }}
                     </span>
                   </div>
                 </div>
                 <div class="cc-actions" @click.stop>
-                  <button class="cc-btn" @click.stop="toggleCh(ch)">{{ ch.enabled ? '禁用' : '启用' }}</button>
-                  <button class="cc-btn danger" @click.stop="deleteCh(ch)">删除</button>
+                  <button class="cc-btn" @click.stop="toggleCh(ch)">{{ ch.enabled ? t('channel.disable') : t('channel.enable') }}</button>
+                  <button class="cc-btn danger" @click.stop="deleteCh(ch)">{{ t('channel.delete') }}</button>
                 </div>
               </div>
             </div>
@@ -60,8 +60,8 @@
           <!-- 可用频道 -->
           <div class="section-block">
             <div class="section-title-row">
-              <h3 class="section-label">可用频道</h3>
-              <span class="section-hint">连接一个新的频道</span>
+              <h3 class="section-label">{{ t('channel.availableSection') }}</h3>
+              <span class="section-hint">{{ t('channel.availableHint') }}</span>
             </div>
             <div class="available-grid">
               <button
@@ -74,8 +74,8 @@
                 <span class="avail-icon" v-html="t.icon"></span>
                 <span class="avail-name">{{ t.name }}</span>
                 <span class="avail-auth">{{ t.auth }}</span>
-                <span v-if="!t.available" class="avail-badge">即将</span>
-                <span v-else-if="channels.some(c => c.key === t.key)" class="avail-badge connected-badge">已接入</span>
+                <span v-if="!t.available" class="avail-badge">{{ $t('channel.comingSoon') }}</span>
+                <span v-else-if="channels.some(c => c.key === t.key)" class="avail-badge connected-badge">{{ $t('channel.connected') }}</span>
               </button>
             </div>
           </div>
@@ -88,21 +88,21 @@
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2a5.5 5.5 0 010-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a5.5 5.5 0 010 8.4M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>
             </div>
             <span class="sidebar-stat-val">{{ channels.length }}</span>
-            <span class="sidebar-stat-label">频道总数</span>
+            <span class="sidebar-stat-label">{{ t('channel.totalChannels') }}</span>
           </div>
           <div class="sidebar-stat">
             <div class="sidebar-stat-icon connected">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             </div>
             <span class="sidebar-stat-val">{{ enabledCount }}</span>
-            <span class="sidebar-stat-label">已连接</span>
+            <span class="sidebar-stat-label">{{ t('channel.connectedCount') }}</span>
           </div>
           <div class="sidebar-stat">
             <div class="sidebar-stat-icon disconnected">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             </div>
             <span class="sidebar-stat-val">{{ disabledCount }}</span>
-            <span class="sidebar-stat-label">未连接</span>
+            <span class="sidebar-stat-label">{{ t('channel.disconnectedCount') }}</span>
           </div>
         </div>
       </div>
@@ -114,8 +114,8 @@
     </div>
 
     <!-- ===== 添加频道弹框 ===== -->
-    <n-modal v-model:show="showAddModal" preset="card" title="添加频道" :bordered="false" size="small" style="max-width: 460px;" :mask-closable="true">
-      <p class="modal-subtitle">选择要配置的频道类型</p>
+    <n-modal v-model:show="showAddModal" preset="card" :title="t('channel.addModalTitle')" :bordered="false" size="small" style="max-width: 460px;" :mask-closable="true">
+      <p class="modal-subtitle">{{ t('channel.addModalSubtitle') }}</p>
       <div class="modal-type-grid">
         <button
           v-for="t in channelTypes.filter(c => c.available)"
@@ -131,64 +131,77 @@
     </n-modal>
 
     <!-- ===== 企业微信配置弹框 ===== -->
-    <n-modal v-model:show="showWecomModal" preset="card" :title="(editingChannel ? '编辑' : '新增') + ' 企业微信'" :bordered="false" size="small" style="max-width: 520px;">
+    <n-modal v-model:show="showWecomModal" preset="card" :title="(editingChannel ? t('channel.editPrefix') : t('channel.addPrefix')) + ' 企业微信'" :bordered="false" size="small" style="max-width: 520px;">
       <n-form :model="wecomForm" label-placement="top" class="channel-form" size="medium">
-        <n-form-item label="Corp ID (企业 ID)" required><n-input v-model:value="wecomForm.corpId" placeholder="输入企业 ID（如 wwxxxxxxxxxx）" /></n-form-item>
-        <n-form-item label="Corp Secret (应用密钥)" required><n-input v-model:value="wecomForm.corpSecret" type="password" show-password-on="click" placeholder="应用的 Secret" /></n-form-item>
-        <n-form-item label="Agent ID (应用 ID)" required><n-input-number v-model:value="wecomForm.agentId" :min="1" style="width: 100%" placeholder="1000002" /></n-form-item>
-        <n-form-item label="Token (接收消息Token)" required><n-input v-model:value="wecomForm.token" placeholder="应用回调 Token" /></n-form-item>
-        <n-form-item label="Encoding AES Key" required><n-input v-model:value="wecomForm.encodingAESKey" placeholder="消息加密密钥" /></n-form-item>
+        <n-form-item label="Bot ID" required>
+          <n-input v-model:value="wecomForm.botId" placeholder="your-bot-id" />
+        </n-form-item>
+        <n-form-item label="Secret" required>
+          <n-input v-model:value="wecomForm.secret" type="password" show-password-on="click" placeholder="your-secret" />
+        </n-form-item>
       </n-form>
       <template #footer>
         <div class="modal-footer">
-          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">不会配置？</a>
+          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">{{ t('channel.helpLink') }}</a>
           <div class="modal-actions">
-            <n-button quaternary size="small" @click="cancelForm">取消</n-button>
-            <n-button type="primary" @click="saveWecom" :loading="saving" :disabled="!wecomForm.corpId || !wecomForm.corpSecret || !wecomForm.agentId || !wecomForm.token || !wecomForm.encodingAESKey">保存</n-button>
+            <n-button quaternary size="small" @click="cancelForm">{{ t('channel.cancelBtn') }}</n-button>
+            <n-button type="primary" @click="saveWecom" :loading="saving" :disabled="!wecomForm.botId || !wecomForm.secret">{{ t('channel.saveBtn') }}</n-button>
           </div>
         </div>
       </template>
     </n-modal>
 
     <!-- ===== QQ 机器人配置弹框 ===== -->
-    <n-modal v-model:show="showQQModal" preset="card" :title="(editingChannel ? '编辑' : '新增') + ' QQ 机器人'" :bordered="false" size="small" style="max-width: 520px;">
+    <n-modal v-model:show="showQQModal" preset="card" :title="(editingChannel ? t('channel.editPrefix') : t('channel.addPrefix')) + ' QQ 机器人'" :bordered="false" size="small" style="max-width: 520px;">
       <n-form :model="qqForm" label-placement="top" class="channel-form" size="medium">
         <n-form-item label="App ID (机器人 AppID)" required><n-input v-model:value="qqForm.appId" placeholder="你的 AppID" /></n-form-item>
         <n-form-item label="Client Secret (AppSecret)" required><n-input v-model:value="qqForm.clientSecret" type="password" show-password-on="click" placeholder="你的 AppSecret" /></n-form-item>
       </n-form>
       <template #footer>
         <div class="modal-footer">
-          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">不会配置？</a>
+          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">{{ t('channel.helpLink') }}</a>
           <div class="modal-actions">
-            <n-button quaternary size="small" @click="cancelForm">取消</n-button>
-            <n-button type="primary" @click="saveQQBot" :loading="saving" :disabled="!qqForm.appId || !qqForm.clientSecret">保存</n-button>
+            <n-button quaternary size="small" @click="cancelForm">{{ t('channel.cancelBtn') }}</n-button>
+            <n-button type="primary" @click="saveQQBot" :loading="saving" :disabled="!qqForm.appId || !qqForm.clientSecret">{{ t('channel.saveBtn') }}</n-button>
           </div>
         </div>
       </template>
     </n-modal>
 
     <!-- ===== 钉钉配置弹框 ===== -->
-    <n-modal v-model:show="showDingtalkModal" preset="card" :title="(editingChannel ? '编辑' : '新增') + ' 钉钉'" :bordered="false" size="small" style="max-width: 520px;">
-      <n-form :model="dingtalkForm" label-placement="top" class="channel-form" size="medium">
-        <n-form-item label="AgentID" required><n-input v-model:value="dingtalkForm.agentId" placeholder="123456789" /></n-form-item>
-        <n-form-item label="Client ID (AppKey)" required><n-input v-model:value="dingtalkForm.clientId" placeholder="dingxxxxxx" /></n-form-item>
-        <n-form-item label="Client Secret" required><n-input v-model:value="dingtalkForm.clientSecret" type="password" show-password-on="click" placeholder="应用 AppSecret" /></n-form-item>
-        <n-form-item label="Robot Code" required><n-input v-model:value="dingtalkForm.robotCode" placeholder="dingxxxxxx" /></n-form-item>
-        <n-form-item label="Corp ID (企业 ID)" required><n-input v-model:value="dingtalkForm.corpId" placeholder="dingxxxxxx" /></n-form-item>
-      </n-form>
+    <n-modal v-model:show="showDingtalkModal" preset="card" :title="(editingChannel ? t('channel.editPrefix') : t('channel.addPrefix')) + ' 钉钉'" :bordered="false" size="small" style="max-width: 560px;">
+      <div class="dt-accounts">
+        <div v-for="(acc, idx) in dingtalkForm.accounts" :key="idx" class="dt-account-row">
+          <div class="dt-account-header">
+            <span class="dt-account-label">机器人 {{ idx + 1 }}</span>
+            <button v-if="dingtalkForm.accounts.length > 1" class="dt-remove-btn" @click="removeDtAccount(idx)">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <n-form :model="acc" label-placement="top" class="channel-form dt-mini-form" size="medium">
+            <n-form-item label="名称" required><n-input v-model:value="acc.name" placeholder="如贾维斯" /></n-form-item>
+            <n-form-item label="Client ID (AppKey)" required><n-input v-model:value="acc.clientId" placeholder="dingxxxxxx" /></n-form-item>
+            <n-form-item label="Client Secret" required><n-input v-model:value="acc.clientSecret" type="password" show-password-on="click" placeholder="应用 AppSecret" /></n-form-item>
+          </n-form>
+        </div>
+        <button class="dt-add-btn" @click="addDtAccount">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          添加机器人
+        </button>
+      </div>
       <template #footer>
         <div class="modal-footer">
-          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">不会配置？</a>
+          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">{{ t('channel.helpLink') }}</a>
           <div class="modal-actions">
-            <n-button quaternary size="small" @click="cancelForm">取消</n-button>
-            <n-button type="primary" @click="saveDingTalk" :loading="saving" :disabled="!dingtalkForm.clientId || !dingtalkForm.clientSecret || !dingtalkForm.robotCode || !dingtalkForm.corpId || !dingtalkForm.agentId">保存</n-button>
+            <n-button quaternary size="small" @click="cancelForm">{{ t('channel.cancelBtn') }}</n-button>
+            <n-button type="primary" @click="saveDingTalk" :loading="saving" :disabled="!dingtalkForm.accounts.every(a => a.clientId && a.clientSecret && a.name)">{{ t('channel.saveBtn') }}</n-button>
           </div>
         </div>
       </template>
     </n-modal>
 
     <!-- ===== 飞书配置弹框 ===== -->
-    <n-modal v-model:show="showFeishuModal" preset="card" :title="(editingChannel ? '编辑' : '新增') + ' 飞书'" :bordered="false" size="small" style="max-width: 520px;">
+    <n-modal v-model:show="showFeishuModal" preset="card" :title="(editingChannel ? t('channel.editPrefix') : t('channel.addPrefix')) + ' 飞书'" :bordered="false" size="small" style="max-width: 520px;">
       <n-form :model="feishuForm" label-placement="top" class="channel-form" size="medium">
         <n-form-item label="App ID" required><n-input v-model:value="feishuForm.appId" placeholder="cli_xxx" /></n-form-item>
         <n-form-item label="App Secret" required><n-input v-model:value="feishuForm.appSecret" type="password" show-password-on="click" placeholder="应用 Secret" /></n-form-item>
@@ -196,61 +209,61 @@
       </n-form>
       <template #footer>
         <div class="modal-footer">
-          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">不会配置？</a>
+          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">{{ t('channel.helpLink') }}</a>
           <div class="modal-actions">
-            <n-button quaternary size="small" @click="cancelForm">取消</n-button>
-            <n-button type="primary" @click="saveFeishu" :loading="saving" :disabled="!feishuForm.appId || !feishuForm.appSecret || !feishuForm.botName">保存</n-button>
+            <n-button quaternary size="small" @click="cancelForm">{{ t('channel.cancelBtn') }}</n-button>
+            <n-button type="primary" @click="saveFeishu" :loading="saving" :disabled="!feishuForm.appId || !feishuForm.appSecret || !feishuForm.botName">{{ t('channel.saveBtn') }}</n-button>
           </div>
         </div>
       </template>
     </n-modal>
 
     <!-- ===== Discord 配置弹框 ===== -->
-    <n-modal v-model:show="showDiscordModal" preset="card" :title="(editingChannel ? '编辑' : '新增') + ' Discord'" :bordered="false" size="small" style="max-width: 520px;">
+    <n-modal v-model:show="showDiscordModal" preset="card" :title="(editingChannel ? t('channel.editPrefix') : t('channel.addPrefix')) + ' Discord'" :bordered="false" size="small" style="max-width: 520px;">
       <n-form :model="discordForm" label-placement="top" class="channel-form" size="medium">
-        <n-form-item label="机器人 Token" required>
+        <n-form-item :label="t('channel.discordTokenLabel')" required>
           <n-input v-model:value="discordForm.token" type="password" show-password-on="click" placeholder="MTQ3Njg2..." />
         </n-form-item>
-        <n-form-item label="服务器 ID (Guild ID)" required>
+        <n-form-item :label="t('channel.discordGuildLabel')" required>
           <n-input v-model:value="discordForm.guildId" placeholder="1476867320373837877" />
           <template #feedback>
-            <span class="env-hint">右键服务器名称 → 复制服务器 ID（需开启开发者模式）</span>
+            <span class="env-hint">{{ t('channel.discordGuildHint') }}</span>
           </template>
         </n-form-item>
       </n-form>
       <template #footer>
         <div class="modal-footer">
-          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">不会配置？</a>
+          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">{{ t('channel.helpLink') }}</a>
           <div class="modal-actions">
-            <n-button quaternary size="small" @click="cancelForm">返回</n-button>
-            <n-button type="primary" @click="saveDiscord" :loading="saving" :disabled="!discordForm.token || !discordForm.guildId.trim()">保存并连接</n-button>
+            <n-button quaternary size="small" @click="cancelForm">{{ t('channel.backBtn') }}</n-button>
+            <n-button type="primary" @click="saveDiscord" :loading="saving" :disabled="!discordForm.token || !discordForm.guildId.trim()">{{ t('channel.saveConnectBtn') }}</n-button>
           </div>
         </div>
       </template>
     </n-modal>
 
     <!-- ===== Telegram 配置弹框 ===== -->
-    <n-modal v-model:show="showTelegramModal" preset="card" :title="(editingChannel ? '编辑' : '新增') + ' Telegram'" :bordered="false" size="small" style="max-width: 520px;">
+    <n-modal v-model:show="showTelegramModal" preset="card" :title="(editingChannel ? t('channel.editPrefix') : t('channel.addPrefix')) + ' Telegram'" :bordered="false" size="small" style="max-width: 520px;">
       <n-form :model="telegramForm" label-placement="top" class="channel-form" size="medium">
-        <n-form-item label="机器人令牌" required>
+        <n-form-item :label="t('channel.telegramTokenLabel')" required>
           <n-input v-model:value="telegramForm.botToken" type="password" show-password-on="click" placeholder="123456:ABC-DEF..." />
           <template #feedback>
-            <span class="env-hint">环境变量: TELEGRAM_BOT_TOKEN</span>
+            <span class="env-hint">ENV: TELEGRAM_BOT_TOKEN</span>
           </template>
         </n-form-item>
-        <n-form-item label="允许的用户 ID" required>
-          <n-input v-model:value="telegramForm.allowFromText" placeholder="例如 123456789, 987654321" />
+        <n-form-item :label="t('channel.telegramAllowLabel')" required>
+          <n-input v-model:value="telegramForm.allowFromText" placeholder="123456789, 987654321" />
           <template #feedback>
-            <span class="env-hint">允许使用机器人的用户 ID 列表（逗号分隔）。出于安全考虑，此项为必填。</span>
+            <span class="env-hint">{{ t('channel.telegramAllowHint') }}</span>
           </template>
         </n-form-item>
       </n-form>
       <template #footer>
         <div class="modal-footer">
-          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">不会配置？</a>
+          <a class="help-link" href="https://mp.weixin.qq.com/s/vG8BRAzvjVUfgJYaKgfCiw" target="_blank" rel="noopener">{{ t('channel.helpLink') }}</a>
           <div class="modal-actions">
-            <n-button quaternary size="small" @click="cancelForm">返回</n-button>
-            <n-button type="primary" @click="saveTelegram" :loading="saving" :disabled="!telegramForm.botToken || !telegramForm.allowFromText.trim()">保存并连接</n-button>
+            <n-button quaternary size="small" @click="cancelForm">{{ t('channel.backBtn') }}</n-button>
+            <n-button type="primary" @click="saveTelegram" :loading="saving" :disabled="!telegramForm.botToken || !telegramForm.allowFromText.trim()">{{ t('channel.saveConnectBtn') }}</n-button>
           </div>
         </div>
       </template>
@@ -261,9 +274,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { NForm, NFormItem, NInput, NInputNumber, NButton, NTooltip, NModal } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { getChannels, saveChannel, deleteChannel, toggleChannel } from '@/api/channel'
 import gm from '@/utils/gmssh'
 import cache from '@/stores/cache'
+
+const { t } = useI18n()
 
 const loading = ref(true)
 const saving = ref(false)
@@ -284,15 +300,15 @@ const showTelegramModal = ref(false)
 const enabledCount = computed(() => channels.value.filter(c => c.enabled).length)
 const disabledCount = computed(() => channels.value.filter(c => !c.enabled).length)
 
-const wecomForm = ref({ corpId: '', corpSecret: '', agentId: null, token: '', encodingAESKey: '' })
+const wecomForm = ref({ botId: '', secret: '' })
 const qqForm = ref({ appId: '', clientSecret: '' })
-const dingtalkForm = ref({ clientId: '', clientSecret: '', robotCode: '', corpId: '', agentId: '' })
+const dingtalkForm = ref({ accounts: [{ name: '', clientId: '', clientSecret: '' }] })
 const discordForm = ref({ token: '', guildId: '' })
 const telegramForm = ref({ botToken: '', allowFromText: '' })
 const feishuForm = ref({ appId: '', appSecret: '', botName: '' })
 
 const channelTypes = [
-  { key: 'wecom-app', name: '企业微信', available: true, auth: '令牌',
+  { key: 'wecom', name: '企业微信', available: true, auth: '令牌',
     icon: '<svg viewBox="0 0 24 24" width="28" height="28" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.3"/><path d="M8 10.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM14 10.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM7 14.5s1.5 2 5 2 5-2 5-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>' },
   { key: 'qqbot', name: 'QQ 机器人', available: true, auth: '令牌',
     icon: '<svg viewBox="0 0 24 24" width="28" height="28" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.3"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8 15s2 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>' },
@@ -324,13 +340,10 @@ function getChannelIcon(key) {
 const revealedFields = ref({})
 
 function getChannelFields(ch) {
-  if (ch.key === 'wecom-app') {
+  if (ch.key === 'wecom') {
     return [
-      { label: 'Corp ID', value: String(ch.corpId || ''), masked: false },
-      { label: 'Agent ID', value: String(ch.agentId || ''), masked: false },
-      { label: 'Corp Secret', value: String(ch.corpSecret || ''), masked: true },
-      { label: 'Token', value: String(ch.token || ''), masked: true },
-      { label: 'AES Key', value: String(ch.encodingAESKey || ''), masked: true },
+      { label: 'Bot ID', value: String(ch.botId || ''), masked: false },
+      { label: 'Secret', value: String(ch.secret || ''), masked: true },
     ].filter(f => f.value)
   }
   if (ch.key === 'qqbot') {
@@ -340,12 +353,13 @@ function getChannelFields(ch) {
     ].filter(f => f.value)
   }
   if (ch.key === 'dingtalk') {
+    const accounts = ch.accounts || {}
+    const count = Object.keys(accounts).length
+    const first = accounts[Object.keys(accounts)[0]] || {}
     return [
-      { label: 'Client ID', value: String(ch.clientId || ''), masked: false },
-      { label: 'Robot Code', value: String(ch.robotCode || ''), masked: false },
-      { label: 'Corp ID', value: String(ch.corpId || ''), masked: false },
-      { label: 'Agent ID', value: String(ch.agentId || ''), masked: false },
-      { label: 'Client Secret', value: String(ch.clientSecret || ''), masked: true },
+      { label: '机器人数量', value: String(count) + ' 个', masked: false },
+      { label: '第一个 Client ID', value: String(first.clientId || ''), masked: false },
+      { label: 'Client Secret', value: String(first.clientSecret || ''), masked: true },
     ].filter(f => f.value)
   }
   if (ch.key === 'feishu') {
@@ -392,7 +406,7 @@ function openAddForm(key) {
   editingChannel.value = null
   resetForms()
   const modalMap = {
-    'wecom-app': showWecomModal,
+    'wecom': showWecomModal,
     'qqbot': showQQModal,
     'dingtalk': showDingtalkModal,
     'feishu': showFeishuModal,
@@ -403,9 +417,9 @@ function openAddForm(key) {
 }
 
 function resetForms() {
-  wecomForm.value = { corpId: '', corpSecret: '', agentId: null, token: '', encodingAESKey: '' }
+  wecomForm.value = { botId: '', secret: '' }
   qqForm.value = { appId: '', clientSecret: '' }
-  dingtalkForm.value = { clientId: '', clientSecret: '', robotCode: '', corpId: '', agentId: '' }
+  dingtalkForm.value = { accounts: [{ name: '', clientId: '', clientSecret: '' }] }
   feishuForm.value = { appId: '', appSecret: '', botName: '' }
   discordForm.value = { token: '', guildId: '' }
   telegramForm.value = { botToken: '', allowFromText: '' }
@@ -424,11 +438,17 @@ function cancelForm() {
 
 function editChannel(ch) {
   editingChannel.value = ch
-  if (ch.key === 'wecom-app') {
-    wecomForm.value = { corpId: ch.corpId || '', corpSecret: ch.corpSecret || '', agentId: ch.agentId || null, token: ch.token || '', encodingAESKey: ch.encodingAESKey || '' }
+  if (ch.key === 'wecom') {
+    wecomForm.value = { botId: ch.botId || '', secret: ch.secret || '' }
     showWecomModal.value = true
   } else if (ch.key === 'dingtalk') {
-    dingtalkForm.value = { clientId: ch.clientId || '', clientSecret: ch.clientSecret || '', robotCode: ch.robotCode || '', corpId: ch.corpId || '', agentId: String(ch.agentId || '') }
+    const accounts = ch.accounts || {}
+    const accs = Object.values(accounts).map((a) => ({
+      name: a.name || '',
+      clientId: a.clientId || '',
+      clientSecret: a.clientSecret || ''
+    }))
+    dingtalkForm.value = { accounts: accs.length > 0 ? accs : [{ name: '', clientId: '', clientSecret: '' }] }
     showDingtalkModal.value = true
   } else if (ch.key === 'qqbot') {
     qqForm.value = { appId: ch.appId || '', clientSecret: ch.clientSecret || '' }
@@ -454,14 +474,14 @@ async function fetchChannels() {
     const res = await getChannels()
     channels.value = res?.channels || []
     cache.channels = [...channels.value]
-  } catch (e) { gm.error('获取频道失败: ' + (e.message || '')) }
+    } catch (e) { gm.error(t('channel.fetchFailed') + ': ' + (e.message || '')) }
   finally { loading.value = false }
 }
 
 async function saveWecom() {
   saving.value = true
   try {
-    await saveChannel({ channelKey: 'wecom-app', enabled: editingChannel.value ? (editingChannel.value.enabled !== false) : true, corpId: wecomForm.value.corpId, corpSecret: wecomForm.value.corpSecret, agentId: wecomForm.value.agentId, token: wecomForm.value.token, encodingAESKey: wecomForm.value.encodingAESKey, dmPolicy: 'pairing', groupPolicy: 'open' })
+    await saveChannel({ channelKey: 'wecom', enabled: editingChannel.value ? (editingChannel.value.enabled !== false) : true, botId: wecomForm.value.botId, secret: wecomForm.value.secret })
     gm.success('频道配置已保存'); cancelForm(); await fetchChannels()
   } catch (e) { gm.error('保存失败: ' + (e.message || '')) }
   finally { saving.value = false }
@@ -479,10 +499,22 @@ async function saveQQBot() {
 async function saveDingTalk() {
   saving.value = true
   try {
-    await saveChannel({ channelKey: 'dingtalk', enabled: editingChannel.value ? (editingChannel.value.enabled !== false) : true, clientId: dingtalkForm.value.clientId, clientSecret: dingtalkForm.value.clientSecret, robotCode: dingtalkForm.value.robotCode, corpId: dingtalkForm.value.corpId, agentId: dingtalkForm.value.agentId, dmPolicy: 'open', groupPolicy: 'open', debug: false, messageType: 'markdown' })
+    await saveChannel({
+      channelKey: 'dingtalk',
+      enabled: editingChannel.value ? (editingChannel.value.enabled !== false) : true,
+      accounts: dingtalkForm.value.accounts,
+    })
     gm.success('钉钉频道已保存'); cancelForm(); await fetchChannels()
   } catch (e) { gm.error('保存失败: ' + (e.message || '')) }
   finally { saving.value = false }
+}
+
+function addDtAccount() {
+  dingtalkForm.value.accounts.push({ name: '', clientId: '', clientSecret: '' })
+}
+
+function removeDtAccount(idx) {
+  dingtalkForm.value.accounts.splice(idx, 1)
 }
 
 async function saveFeishu() {
@@ -528,17 +560,17 @@ async function saveTelegram() {
 async function deleteCh(ch) {
   const gmApi = gm.getGmApi()
   const doDelete = async () => {
-    try { await deleteChannel({ channelKey: ch.key }); gm.success('频道已删除'); await fetchChannels() }
-    catch (e) { gm.error('删除失败: ' + (e.message || '')) }
+      try { await deleteChannel({ channelKey: ch.key }); gm.success(t('channel.deleteSuccess')); await fetchChannels() }
+    catch (e) { gm.error(t('channel.deleteFailed') + ': ' + (e.message || '')) }
   }
   if (gmApi?.dialog) {
-    gmApi.dialog.warning({ title: '删除频道', content: `确定删除「${getChannelDisplayName(ch.key)}」频道吗？`, positiveText: '确定', negativeText: '取消', onPositiveClick: doDelete })
-  } else { if (confirm(`确定删除「${getChannelDisplayName(ch.key)}」？`)) doDelete() }
+    gmApi.dialog.warning({ title: t('channel.deleteConfirmTitle'), content: t('channel.deleteConfirmBody').replace('{name}', getChannelDisplayName(ch.key)), positiveText: t('channel.confirm'), negativeText: t('channel.cancelBtn'), onPositiveClick: doDelete })
+  } else { if (confirm(t('channel.deleteConfirmBody').replace('{name}', getChannelDisplayName(ch.key)))) doDelete() }
 }
 
 async function toggleCh(ch) {
-  try { await toggleChannel({ channelKey: ch.key, enabled: !ch.enabled }); gm.success(ch.enabled ? '频道已禁用' : '频道已启用'); await fetchChannels() }
-  catch (e) { gm.error('操作失败: ' + (e.message || '')) }
+  try { await toggleChannel({ channelKey: ch.key, enabled: !ch.enabled }); gm.success(ch.enabled ? t('channel.disableSuccess') : t('channel.enableSuccess')); await fetchChannels() }
+  catch (e) { gm.error(t('channel.toggleFailed') + ': ' + (e.message || '')) }
 }
 
 onMounted(() => {
@@ -725,6 +757,34 @@ onMounted(() => {
   border: 1px solid rgba(var(--jm-primary-1-rgb), 0.1);
 }
 .env-hint { font-size: 11px; color: var(--jm-accent-4); }
+
+/* 钉钉多账号 */
+.dt-accounts { display: flex; flex-direction: column; gap: 12px; }
+.dt-account-row { border: 1px solid var(--jm-glass-border); border-radius: 10px; overflow: hidden; }
+.dt-account-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(var(--jm-accent-1-rgb), 0.2);
+  border-bottom: 1px solid var(--jm-glass-border);
+}
+.dt-account-label { font-size: 12px; font-weight: 600; color: var(--jm-accent-5); }
+.dt-remove-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 4px;
+  border: none; background: transparent; color: var(--jm-accent-4); cursor: pointer;
+  transition: all 0.15s;
+}
+.dt-remove-btn:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+.dt-mini-form { border-radius: 0; border: none; margin: 0; }
+.dt-add-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px dashed var(--jm-glass-border);
+  background: transparent; color: var(--jm-accent-4);
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+  align-self: flex-start;
+}
+.dt-add-btn:hover { border-color: var(--jm-primary-1); color: var(--jm-primary-2); }
 
 /* 加载 */
 .loading-state { display: flex; justify-content: center; padding: 40px; }

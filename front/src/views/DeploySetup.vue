@@ -52,8 +52,9 @@
           <n-select
             v-model:value="formData.customApiMode"
             :options="[
-              { label: 'OpenAI Chat Completions (大多数平台)', value: 'openai' },
-              { label: 'Anthropic Messages (Claude 兼容)', value: 'anthropic' },
+              { label: 'OpenAI Chat Completions（大多数平台）', value: 'openai' },
+              { label: 'Anthropic Messages（Claude 原生 / 智谱 GLM 等）', value: 'anthropic' },
+              { label: 'Anthropic Messages-compat（第三方 Anthropic 格式）', value: 'anthropic-messages' },
             ]"
           />
         </n-form-item>
@@ -351,6 +352,7 @@ async function startDeploy() {
       provider: formData.value.provider,
       model: formData.value.model,
       apiKey: formData.value.apiKey,
+      apiMode: isCustom.value ? formData.value.customApiMode : '',
       customBaseUrl: isOllama.value
         ? `http://localhost:${formData.value.ollamaPort}/v1`
         : formData.value.customBaseUrl,

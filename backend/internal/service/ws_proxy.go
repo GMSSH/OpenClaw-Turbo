@@ -1,11 +1,18 @@
 package service
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"net/http"
 	"sync"
@@ -23,6 +30,7 @@ type WsProxy struct {
 	listener  net.Listener
 	server    *http.Server
 	running   bool
+	useSSL    bool
 
 	// 活跃连接追踪（Stop 时强制关闭）
 	connsMu sync.Mutex
@@ -117,7 +125,7 @@ func (p *WsProxy) closeAllConns() {
 }
 
 // Start 启动 WS 代理（指定端口，0 = 随机）
-func (p *WsProxy) Start(port int) (int, error) {
+func (p *WsProxy) Start(port int, useSSL bool) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -146,20 +154,79 @@ func (p *WsProxy) Start(port int) (int, error) {
 	p.server = &http.Server{Handler: mux}
 	p.port = actualPort
 	p.running = true
+	p.useSSL = useSSL
 
-	go func() {
-		if err := p.server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			log.Printf("[WS-Proxy] 服务退出: %v", err)
+	if useSSL {
+		// 生成自签名 TLS 证书（内存中，不落盘）
+		tlsCert, err := generateSelfSignedCert()
+		if err != nil {
+			ln.Close()
+			p.running = false
+			return 0, fmt.Errorf("生成 TLS 证书失败: %v", err)
 		}
-		p.mu.Lock()
-		p.running = false
-		p.mu.Unlock()
-	}()
+		p.server.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{tlsCert},
+		}
+		tlsListener := tls.NewListener(ln, p.server.TLSConfig)
+		p.listener = tlsListener
+		log.Printf("[WS-Proxy] 🔒 WSS 模式启动，端口 %d", actualPort)
+		go func() {
+			if err := p.server.Serve(tlsListener); err != nil && err != http.ErrServerClosed {
+				log.Printf("[WS-Proxy] 服务退出: %v", err)
+			}
+			p.mu.Lock()
+			p.running = false
+			p.mu.Unlock()
+		}()
+	} else {
+		log.Printf("[WS-Proxy] WS 模式启动，端口 %d", actualPort)
+		go func() {
+			if err := p.server.Serve(ln); err != nil && err != http.ErrServerClosed {
+				log.Printf("[WS-Proxy] 服务退出: %v", err)
+			}
+			p.mu.Lock()
+			p.running = false
+			p.mu.Unlock()
+		}()
+	}
 
 	// 更新全局信息供 GetClawWsInfo 使用
 	SetWsProxyInfo(actualPort, p.authToken)
 
 	return actualPort, nil
+}
+
+// generateSelfSignedCert 生成自签名 TLS 证书（内存中，有效期 1 年）
+func generateSelfSignedCert() (tls.Certificate, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{Organization: []string{"GMSSH WS Proxy"}},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"localhost", "*.gmssh.com"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("0.0.0.0")},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+
+	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
 // Stop 停止 WS 代理

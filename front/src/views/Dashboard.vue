@@ -23,7 +23,7 @@
       <div class="sidebar-footer">
         <div class="status-badge" :class="running ? 'online' : 'offline'">
           <div class="status-dot"></div>
-          <span>{{ running ? '运行中' : '已停止' }}</span>
+          <span>{{ running ? t('dashboard.running') : t('dashboard.stopped') }}</span>
         </div>
       </div>
     </aside>
@@ -44,8 +44,8 @@
               <path d="M15 9l-6 6M9 9l6 6" stroke="var(--jm-error-color)" stroke-width="2" stroke-linecap="round"/>
             </svg>
             <div>
-              <span class="bar-status">{{ statusData.containerName }}</span>
-              <span class="bar-sub">{{ statusData.image }}</span>
+              <span class="bar-status">OpenClaw</span>
+              <span class="bar-sub">{{ statusData.uptime || '-' }}</span>
             </div>
           </div>
           <n-button quaternary size="tiny" @click="refreshStatus">
@@ -63,7 +63,7 @@
               <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="var(--jm-primary-1)" stroke-width="1.5" stroke-linecap="round"/>
               <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="var(--jm-primary-2)" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            <span>控制台地址</span>
+            <span>{{ t('dashboard.consoleUrl') }}</span>
           </div>
           <div class="url-body">
             <code>{{ accessUrl }}</code>
@@ -79,19 +79,19 @@
         <!-- 信息网格 -->
         <div class="info-grid">
           <div class="info-item">
-            <span class="info-label">运行时间</span>
+            <span class="info-label">{{ t('dashboard.uptime') }}</span>
             <span class="info-value">{{ statusData.uptime || '-' }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Web 端口</span>
+            <span class="info-label">{{ t('dashboard.webPort') }}</span>
             <span class="info-value mono">:{{ statusData.webPort || 18789 }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">通讯端口</span>
+            <span class="info-label">{{ t('dashboard.bridgePort') }}</span>
             <span class="info-value mono">:{{ statusData.bridgePort || 18790 }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">容器状态</span>
+            <span class="info-label">{{ t('dashboard.containerStatus') }}</span>
             <span class="info-value">{{ statusData.status || 'unknown' }}</span>
           </div>
         </div>
@@ -104,21 +104,27 @@
               <polyline points="15,3 21,3 21,9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            打开 Web UI
+            {{ t('dashboard.openWebUI') }}
           </button>
           <button class="action-btn" @click="viewLogs">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
               <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
               <path d="M8 8l4 4-4 4M14 16h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            查看日志
+            {{ t('dashboard.viewLogs') }}
+          </button>
+        <button class="action-btn" @click="openConfigDir">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+              <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            {{ t('dashboard.openConfigDir') }}
           </button>
           <button class="action-btn" @click="openConfig">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
               <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
               <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            查看配置
+            {{ t('dashboard.viewConfig') }}
           </button>
         </div>
       </div>
@@ -129,20 +135,22 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { NButton } from 'naive-ui'
-import { getClawStatus } from '@/api/deploy'
+import { getClawStatus, getOpenClawConfigDirPath } from '@/api/deploy'
 import gm from '@/utils/gmssh'
 
+const { t } = useI18n()
 const route = useRoute()
 const activeMenu = ref('console')
 
-const menuItems = [
+const menuItems = computed(() => [
   {
     key: 'console',
-    label: '控制台',
+    label: t('dashboard.console'),
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>',
   },
-]
+])
 
 const statusData = ref({
   running: false,
@@ -186,8 +194,8 @@ function openWebUI() {
 function copyUrl() {
   if (!accessUrl.value) return
   navigator.clipboard.writeText(accessUrl.value)
-    .then(() => gm.success('已复制'))
-    .catch(() => gm.warning('复制失败'))
+    .then(() => gm.success(t('common.copied')))
+    .catch(() => gm.warning(t('common.copyFailed')))
 }
 
 function viewLogs() {
@@ -195,13 +203,29 @@ function viewLogs() {
   if (gmApi?.openShell) {
     gmApi.openShell({ arr: ['docker logs -f gmssh-openclaw\n'] })
   } else {
-    gm.info('请在终端执行: docker logs -f gmssh-openclaw')
+    gm.info(t('dashboard.viewLogs') + ': docker logs -f gmssh-openclaw')
   }
 }
 
 function refreshStatus() {
   fetchStatus()
-  gm.success('状态已刷新')
+  gm.success(t('dashboard.statusRefreshed'))
+}
+
+async function openConfigDir() {
+  try {
+    const res = await getOpenClawConfigDirPath()
+    const dir = res?.path
+    if (!dir) { gm.warning('获取目录失败'); return }
+    const gmApi = gm.getGmApi()
+    if (gmApi?.openFolder) {
+      gmApi.openFolder(dir)
+    } else {
+      gm.info('配置目录: ' + dir)
+    }
+  } catch (e) {
+    gm.error('获取配置目录失败: ' + (e.message || ''))
+  }
 }
 
 function openConfig() {
@@ -209,7 +233,7 @@ function openConfig() {
   if (gmApi?.openCodeEditor) {
     gmApi.openCodeEditor('/opt/gmclaw/conf/openclaw.json')
   } else {
-    gm.info('配置文件: /opt/gmclaw/conf/openclaw.json')
+    gm.info(t('dashboard.viewConfig') + ': /opt/gmclaw/conf/openclaw.json')
   }
 }
 

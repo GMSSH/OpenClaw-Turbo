@@ -64,13 +64,29 @@ func getDeployMode() string {
 	data, err := os.ReadFile(getDeployModeFile())
 	if err == nil {
 		mode := strings.TrimSpace(string(data))
-		if mode == "local" || mode == "docker" {
-			return mode
+		// 验证缓存是否与实际状态匹配（避免卸载后残留旧缓存）
+		if mode == "docker" {
+			out, err := exec.Command("docker", "inspect", "--format", "{{.State.Status}}", "gmssh-openclaw").Output()
+			if err == nil && len(strings.TrimSpace(string(out))) > 0 {
+				return "docker" // 容器确实存在
+			}
+			// 容器不存在，缓存失效，清除并重检测
+			os.Remove(getDeployModeFile())
+		} else if mode == "local" {
+			_, binErr := exec.LookPath("openclaw")
+			outSvc, _ := exec.Command("systemctl", "is-enabled", "openclaw").Output()
+			if binErr == nil || strings.TrimSpace(string(outSvc)) == "enabled" {
+				return "local" // 二进制或服务确实存在
+			}
+			// 本地未安装，缓存失效，清除并重检测
+			os.Remove(getDeployModeFile())
 		}
 	}
-	// 2) 缓存丢失（如 GMSSH 更新清空 tmp），自动检测
+	// 2) 缓存丢失或失效，自动检测
 	detected := detectDeployMode()
-	saveDeployMode(detected)
+	if detected != "" {
+		saveDeployMode(detected)
+	}
 	return detected
 }
 
@@ -106,7 +122,7 @@ func detectDeployMode() string {
 			return "local"
 		}
 	}
-	return "docker" // 默认
+	return "" // 什么都没安装，不设置默认值
 }
 
 func saveDeployMode(mode string) {
@@ -147,19 +163,29 @@ func (s *DeployService) CheckEnvironment() (*dto.CheckEnvResp, error) {
 	resp.DockerComposeReady = composeOk
 
 	// 3. 检测 Node.js
-	if out, err := exec.Command("node", "--version").Output(); err == nil {
-		resp.NodeReady = true
-		resp.NodeVersion = strings.TrimSpace(string(out))
+	// 通过 bash -lc 执行，加载登录 shell 环境（nvm/profile.d），
+	// 确保能检测到 nvm 安装的 node，与用户终端里看到的版本一致
+	if out, err := exec.Command("bash", "-lc", "node --version 2>/dev/null").Output(); err == nil {
+		v := strings.TrimSpace(string(out))
+		if v != "" {
+			resp.NodeVersion = v
+			// 版本号校验：必须 >= 22
+			major := parseNodeMajorVersion(v)
+			if major >= 22 {
+				resp.NodeReady = true
+			}
+		}
 	}
 
-	// 4. 检测 pnpm
-	if err := exec.Command("pnpm", "--version").Run(); err == nil {
+	// 4. 检测 pnpm（同样通过 bash -lc，确保 PNPM_HOME 已加载）
+	if err := exec.Command("bash", "-lc", "pnpm --version >/dev/null 2>&1").Run(); err == nil {
 		resp.PnpmReady = true
 	}
 
 	resp.AllReady = resp.DockerReady && resp.DockerComposeReady
 	return resp, nil
 }
+
 
 // CheckPorts 检测端口是否被占用
 func (s *DeployService) CheckPorts(req dto.CheckPortsReq) (*dto.CheckPortsResp, error) {
@@ -376,7 +402,12 @@ func (s *DeployService) Deploy(req dto.DeployReq) (*dto.DeployResp, error) {
 	if err := os.WriteFile(configFile, configJSON, 0644); err != nil {
 		return nil, fmt.Errorf("写入 openclaw.json 失败: %v", err)
 	}
-
+	// Gemini：补写 auth 配置、.env 和 auth-profiles.json
+	if req.Provider == "gemini" {
+		if err := writeGeminiExtraFiles(openclawConfig, req.ApiKey, configFile); err != nil {
+			return nil, fmt.Errorf("写入 Gemini 额外配置失败: %v", err)
+		}
+	}
 	// 赋予容器内 node 用户(UID 1000)读写权限
 	chownCmd := exec.Command("chown", "-R", "1000:1000", dataDir)
 	if out, err := chownCmd.CombinedOutput(); err != nil {
@@ -443,6 +474,71 @@ func getOpenClawConfigDir() string {
 // getOpenClawConfigPath 获取 ~/.openclaw/openclaw.json
 func getOpenClawConfigPath() string {
 	return filepath.Join(getOpenClawConfigDir(), "openclaw.json")
+}
+
+// writeGeminiExtraFiles 在写完 openclaw.json 之后，追加写入 Gemini 所需的三项额外配置：
+//  1. openclaw.json 中补充 auth.profiles.google:default（固定值）
+//  2. 配置目录下的 .env 文件（GEMINI_API_KEY + GOOGLE_API_KEY）
+//  3. agents/main/agent/auth-profiles.json
+func writeGeminiExtraFiles(config map[string]any, apiKey string, configPath string) error {
+	confDir := filepath.Dir(configPath)
+
+	// --- 1. 补充 auth.profiles 并重新写入 openclaw.json ---
+	authMap, _ := config["auth"].(map[string]any)
+	if authMap == nil {
+		authMap = map[string]any{}
+	}
+	profilesMap, _ := authMap["profiles"].(map[string]any)
+	if profilesMap == nil {
+		profilesMap = map[string]any{}
+	}
+	profilesMap["google:default"] = map[string]any{
+		"provider": "google",
+		"mode":     "api_key",
+	}
+	authMap["profiles"] = profilesMap
+	config["auth"] = authMap
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %v", err)
+	}
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("写入 openclaw.json 失败: %v", err)
+	}
+
+	// --- 2. 写入 .env ---
+	envContent := fmt.Sprintf("GEMINI_API_KEY=%s\nGOOGLE_API_KEY=%s\n", apiKey, apiKey)
+	envPath := filepath.Join(confDir, ".env")
+	if err := os.WriteFile(envPath, []byte(envContent), 0600); err != nil {
+		return fmt.Errorf("写入 .env 失败: %v", err)
+	}
+
+	// --- 3. 写入 agents/main/agent/auth-profiles.json ---
+	agentDir := filepath.Join(confDir, "agents", "main", "agent")
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		return fmt.Errorf("创建 agent 目录失败: %v", err)
+	}
+	authProfiles := map[string]any{
+		"version": 1,
+		"profiles": map[string]any{
+			"google:default": map[string]any{
+				"type":     "api_key",
+				"provider": "google",
+				"key":      apiKey,
+			},
+		},
+	}
+	apData, err := json.MarshalIndent(authProfiles, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化 auth-profiles 失败: %v", err)
+	}
+	apPath := filepath.Join(agentDir, "auth-profiles.json")
+	if err := os.WriteFile(apPath, apData, 0600); err != nil {
+		return fmt.Errorf("写入 auth-profiles.json 失败: %v", err)
+	}
+
+	return nil
 }
 
 // InstallNodeEnv 执行 Node.js 环境安装脚本
@@ -529,15 +625,33 @@ func (s *DeployService) runLocalDeploy(req dto.DeployReq) {
 	if _, err := os.Stat(filepath.Join(cloneDir, "package.json")); os.IsNotExist(err) {
 		addDeployLog("📦 正在克隆 OpenClaw 仓库...")
 		os.MkdirAll(filepath.Dir(cloneDir), 0755)
-		// 清理可能存在的残留目录（重部署场景）
-		if _, dirErr := os.Stat(cloneDir); dirErr == nil {
-			addDeployLog("🗑️ 清理旧目录...")
-			os.RemoveAll(cloneDir)
+
+		const maxCloneRetries = 3
+		var cloneErr error
+		for attempt := 1; attempt <= maxCloneRetries; attempt++ {
+			// 每次尝试前清理可能存在的残留目录
+			if _, dirErr := os.Stat(cloneDir); dirErr == nil {
+				addDeployLog("🗑️ 清理旧目录...")
+				os.RemoveAll(cloneDir)
+			}
+			if attempt > 1 {
+				addDeployLog(fmt.Sprintf("🔄 第 %d/%d 次重试克隆仓库...", attempt, maxCloneRetries))
+			}
+			cmd := exec.Command("git", "clone", "https://gitee.com/OpenClaw-CN/openclaw-cn.git", cloneDir)
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				cloneErr = nil
+				break
+			}
+			cloneErr = err
+			addDeployLog(fmt.Sprintf("⚠️ 克隆失败 (第 %d/%d 次): %s", attempt, maxCloneRetries, strings.TrimSpace(string(out))))
+			if attempt < maxCloneRetries {
+				addDeployLog("⏳ 5 秒后重试...")
+				time.Sleep(5 * time.Second)
+			}
 		}
-		cmd := exec.Command("git", "clone", "https://gitee.com/OpenClaw-CN/openclaw-cn.git", cloneDir)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			addDeployLog(fmt.Sprintf("❌ 克隆仓库失败: %s", strings.TrimSpace(string(out))))
+		if cloneErr != nil {
+			addDeployLog("❌ 克隆仓库失败，已重试 3 次，部署终止")
 			deployLock.Lock()
 			deployFinished = true
 			deploySuccess = false
@@ -547,37 +661,55 @@ func (s *DeployService) runLocalDeploy(req dto.DeployReq) {
 		addDeployLog("✅ 仓库克隆完成")
 
 		// 切换到稳定标签
-		addDeployLog("🏷️ 切换到 v2026.2.2-cn 分支...")
-		checkoutCmd := exec.Command("git", "-C", cloneDir, "checkout", "v2026.2.2-cn")
-		if out, err := checkoutCmd.CombinedOutput(); err != nil {
-			addDeployLog(fmt.Sprintf("⚠️ 切换分支失败，使用 main: %s", strings.TrimSpace(string(out))))
-		}
+		// addDeployLog("🏷️ 切换到 v2026.2.2-cn 分支...")
+		// checkoutCmd := exec.Command("git", "-C", cloneDir, "checkout", "v2026.2.2-cn")
+		// if out, err := checkoutCmd.CombinedOutput(); err != nil {
+		// 	addDeployLog(fmt.Sprintf("⚠️ 切换分支失败，使用 main: %s", strings.TrimSpace(string(out))))
+		// }
 	} else {
 		addDeployLog("📦 项目已存在，跳过克隆")
 	}
 
 	// ====== 第二步: pnpm install ======
 	addDeployLog("📥 正在安装依赖 (pnpm install)...")
-	s.runStreamCmd(cloneDir, "pnpm", "install")
-
-	if !s.checkDeployOK() {
+	if !s.runStreamCmd(cloneDir, "pnpm", "install") {
 		return
 	}
 
 	// ====== 第三步: pnpm ui:build ======
 	addDeployLog("🎨 正在构建 UI 依赖 (pnpm ui:build)...")
-	s.runStreamCmd(cloneDir, "pnpm", "ui:build")
-
-	if !s.checkDeployOK() {
+	if !s.runStreamCmd(cloneDir, "pnpm", "ui:build") {
+		addDeployLog("⚠️ pnpm ui:build 失败，请到 OpenClaw 目录手动执行: pnpm ui:build")
 		return
 	}
 
 	// ====== 第四步: pnpm build ======
 	addDeployLog("🔨 正在构建项目 (pnpm build)...")
-	s.runStreamCmd(cloneDir, "pnpm", "build")
-
-	if !s.checkDeployOK() {
+	if !s.runStreamCmd(cloneDir, "pnpm", "build") {
 		return
+	}
+
+	// ====== 预防性检查: dist/control-ui 是否存在 ======
+	// 如果重部署场景下 ui:build 产物丢失，运行时会报 "Control UI assets not found"
+	controlUiDir := filepath.Join(cloneDir, "dist", "control-ui")
+	if _, err := os.Stat(controlUiDir); os.IsNotExist(err) {
+		addDeployLog("⚠️ 未找到 dist/control-ui，重新执行 pnpm ui:build...")
+		if !s.runStreamCmd(cloneDir, "pnpm", "ui:build") {
+			addDeployLog("❌ pnpm ui:build 重试失败，部署终止")
+			return
+		}
+		// 再次验证
+		if _, err2 := os.Stat(controlUiDir); os.IsNotExist(err2) {
+			addDeployLog("❌ dist/control-ui 仍不存在，部署终止")
+			deployLock.Lock()
+			deployFinished = true
+			deploySuccess = false
+			deployLock.Unlock()
+			return
+		}
+		addDeployLog("✅ dist/control-ui 构建完成")
+	} else {
+		addDeployLog("✅ dist/control-ui 已存在")
 	}
 
 	// ====== 第五步: 生成配置 ======
@@ -604,6 +736,12 @@ func (s *DeployService) runLocalDeploy(req dto.DeployReq) {
 		deployLock.Unlock()
 		return
 	}
+	// Gemini：补写 auth 配置、.env 和 auth-profiles.json
+	if req.Provider == "gemini" {
+		if err := writeGeminiExtraFiles(openclawConfig, req.ApiKey, getOpenClawConfigPath()); err != nil {
+			addDeployLog(fmt.Sprintf("⚠️ 写入 Gemini 额外配置失败: %v", err))
+		}
+	}
 	addDeployLog("✅ 配置文件已生成")
 
 	// ====== 第 5.5 步: 创建 openclaw 命令链接 ======
@@ -621,9 +759,11 @@ func (s *DeployService) runLocalDeploy(req dto.DeployReq) {
 	addDeployLog("🚀 正在配置 OpenClaw 系统服务...")
 
 	// 动态获取 node 的实际路径
-	nodePath, err := exec.LookPath("node")
-	if err != nil {
-		addDeployLog("❌ 未找到 node 命令，请确认 Node.js 已安装")
+	// 通过 bash -lc 加载 nvm/profile.d 环境，与 CheckEnvironment 检测逻辑保持一致
+	nodePathBytes, nodePathErr := exec.Command("bash", "-lc", "which node 2>/dev/null").Output()
+	nodePath := strings.TrimSpace(string(nodePathBytes))
+	if nodePathErr != nil || nodePath == "" {
+		addDeployLog("❌ 未找到 node 命令，请先安装 Node.js（点击「安装 Node.js 环境」）")
 		deployLock.Lock()
 		deployFinished = true
 		deploySuccess = false
@@ -682,17 +822,29 @@ WantedBy=multi-user.target
 	deploySuccess = true
 }
 
-// runStreamCmd 执行命令并流式输出到部署日志
-func (s *DeployService) runStreamCmd(dir string, name string, args ...string) {
-	cmd := exec.Command(name, args...)
+// runStreamCmd 通过 bash login shell 执行命令并流式输出到部署日志。
+// 使用 bash -lc 确保 /etc/profile.d/ 下的 nvm/pnpm 环境变量被加载。
+// 返回 true 表示成功，false 表示失败（失败时已设置 deployFinished=true）。
+func (s *DeployService) runStreamCmd(dir string, name string, args ...string) bool {
+	// 拼接完整命令字符串，通过 bash login shell 执行
+	rawCmd := name
+	if len(args) > 0 {
+		rawCmd = name + " " + strings.Join(args, " ")
+	}
+	cmd := exec.Command("bash", "-lc", rawCmd)
 	cmd.Dir = dir
 
 	stdoutPipe, _ := cmd.StdoutPipe()
 	stderrPipe, _ := cmd.StderrPipe()
 
 	if err := cmd.Start(); err != nil {
-		addDeployLog(fmt.Sprintf("❌ 命令启动失败: %v", err))
-		return
+		addDeployLog(fmt.Sprintf("❌ 命令启动失败 [%s]: %v", rawCmd, err))
+		// 必须标记失败，否则 checkDeployOK() 返回 true 导致后续步骤继续执行
+		deployLock.Lock()
+		deployFinished = true
+		deploySuccess = false
+		deployLock.Unlock()
+		return false
 	}
 
 	go func() {
@@ -717,12 +869,14 @@ func (s *DeployService) runStreamCmd(dir string, name string, args ...string) {
 	}()
 
 	if err := cmd.Wait(); err != nil {
-		addDeployLog(fmt.Sprintf("❌ 命令执行失败: %v", err))
+		addDeployLog(fmt.Sprintf("❌ 命令执行失败 [%s]: %v", rawCmd, err))
 		deployLock.Lock()
 		deployFinished = true
 		deploySuccess = false
 		deployLock.Unlock()
+		return false
 	}
+	return true
 }
 
 // checkDeployOK 检查部署是否仍在进行中（未失败）
@@ -828,6 +982,7 @@ func (s *DeployService) GetClawWsInfo() (*dto.ClawWsInfoResp, error) {
 type wsProxyConfig struct {
 	Enabled bool `json:"enabled"`
 	Port    int  `json:"port"`
+	UseSSL  bool `json:"useSSL"`
 }
 
 func getWsProxyConfigPath() string {
@@ -861,7 +1016,7 @@ func AutoStartWsProxy() {
 		return
 	}
 	proxy := GetGlobalProxy()
-	port, err := proxy.Start(cfg.Port)
+	port, err := proxy.Start(cfg.Port, cfg.UseSSL)
 	if err != nil {
 		fmt.Printf("WS 代理自动启动失败: %v\n", err)
 		return
@@ -886,11 +1041,14 @@ func (s *DeployService) ToggleWsProxy(req map[string]any) (map[string]any, error
 	portF, hasPort := req["port"].(float64)
 	force, _ := req["force"].(bool)
 
+	useSSL, _ := req["useSSL"].(bool)
+
 	cfg := loadWsProxyConfig()
 	if hasPort && int(portF) > 0 {
 		cfg.Port = int(portF)
 	}
 	cfg.Enabled = enabled
+	cfg.UseSSL = useSSL
 	saveWsProxyConfig(cfg)
 
 	proxy := GetGlobalProxy()
@@ -908,7 +1066,7 @@ func (s *DeployService) ToggleWsProxy(req map[string]any) (map[string]any, error
 		if proxy.IsRunning() {
 			proxy.Stop()
 		}
-		port, err := proxy.Start(cfg.Port)
+		port, err := proxy.Start(cfg.Port, cfg.UseSSL)
 		if err != nil {
 			return map[string]any{
 				"success": false,
@@ -944,7 +1102,10 @@ func (s *DeployService) GetRecentLogs(req map[string]any) (map[string]any, error
 		mode = getDeployMode()
 	}
 	var cmd *exec.Cmd
-	if mode == "local" {
+	if mode == "" {
+		// 未安装任何服务，直接返回空日志
+		return map[string]any{"logs": []string{}}, nil
+	} else if mode == "local" {
 		cmd = exec.Command("journalctl", "-u", "openclaw", "-n", fmt.Sprintf("%d", count), "--no-pager", "-o", "short-iso")
 	} else {
 		cmd = exec.Command("docker", "logs", "--tail", fmt.Sprintf("%d", count), "gmssh-openclaw")
@@ -1099,7 +1260,16 @@ func (s *DeployService) UninstallClaw() (map[string]any, error) {
 
 // ===== 本地模式操作（systemd） =====
 
+// killOpenclawProcess 强制杀死所有 openclaw 相关进程（忽略失败）
+// 使用 -f 匹配完整命令行，确保 openclaw.mjs / openclaw-gateway 等子进程均被清除。
+// kill 后等待 2 秒，让内核释放端口，避免 systemctl restart 时端口仍被占用。
+func killOpenclawProcess() {
+	exec.Command("pkill", "-9", "-f", "openclaw").Run()
+	time.Sleep(2 * time.Second)
+}
+
 func (s *DeployService) stopLocalClaw() (map[string]any, error) {
+	killOpenclawProcess()
 	out, err := exec.Command("systemctl", "stop", "openclaw").CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("停止服务失败: %s", strings.TrimSpace(string(out)))
@@ -1108,6 +1278,7 @@ func (s *DeployService) stopLocalClaw() (map[string]any, error) {
 }
 
 func (s *DeployService) restartLocalClaw() (map[string]any, error) {
+	killOpenclawProcess()
 	out, err := exec.Command("systemctl", "restart", "openclaw").CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("重启服务失败: %s", strings.TrimSpace(string(out)))
@@ -1116,7 +1287,8 @@ func (s *DeployService) restartLocalClaw() (map[string]any, error) {
 }
 
 func (s *DeployService) uninstallLocalClaw() (map[string]any, error) {
-	// 停止并禁用服务
+	// 强制杀进程 + 停止并禁用服务
+	killOpenclawProcess()
 	exec.Command("systemctl", "stop", "openclaw").CombinedOutput()
 	exec.Command("systemctl", "disable", "openclaw").CombinedOutput()
 	os.Remove("/etc/systemd/system/openclaw.service")
@@ -1152,10 +1324,74 @@ func (s *DeployService) UpdateModelConfig(req dto.UpdateModelReq) (map[string]an
 		modelRef = req.Provider + "/" + req.Model
 	}
 
+	// ====== Gemini 特殊处理：使用 OpenClaw 内置 google 供应商 ======
+	if req.Provider == "gemini" {
+		// 设置 env.GOOGLE_API_KEY
+		envMap, _ := config["env"].(map[string]any)
+		if envMap == nil {
+			envMap = map[string]any{}
+		}
+		envMap["GOOGLE_API_KEY"] = req.ApiKey
+		config["env"] = envMap
+
+		// 更新 agents.defaults.model.primary（modelRef 已经是 google/xxx 格式）
+		if agents, ok := config["agents"].(map[string]any); ok {
+			if defaults, ok := agents["defaults"].(map[string]any); ok {
+				if model, ok := defaults["model"].(map[string]any); ok {
+					model["primary"] = modelRef
+				}
+			}
+		}
+
+		// 清除 models.providers（Gemini 使用内置供应商，不需要自定义 provider）
+		if models, ok := config["models"].(map[string]any); ok {
+			models["providers"] = map[string]any{}
+		}
+
+		var geminiConfPath string
+		if getDeployMode() == "local" {
+			geminiConfPath = getOpenClawConfigPath()
+		} else {
+			geminiConfPath = filepath.Join(getDataDir(), "conf", "openclaw.json")
+		}
+		if err := writeGeminiExtraFiles(config, req.ApiKey, geminiConfPath); err != nil {
+			return nil, fmt.Errorf("写入 Gemini 配置失败: %v", err)
+		}
+
+		// 重启服务使配置生效
+		if getDeployMode() == "local" {
+			killOpenclawProcess()
+			if out, err := exec.Command("systemctl", "restart", "openclaw").CombinedOutput(); err != nil {
+				return nil, fmt.Errorf("重启服务失败: %s", strings.TrimSpace(string(out)))
+			}
+		} else {
+			if out, err := exec.Command("docker", "restart", "gmssh-openclaw").CombinedOutput(); err != nil {
+				return nil, fmt.Errorf("重启容器失败: %s", strings.TrimSpace(string(out)))
+			}
+		}
+		return map[string]any{"success": true, "message": "模型已切换为 " + modelRef}, nil
+	}
+
+	// ====== 非 Gemini 供应商：通过 models.providers 配置 ======
+
 	// 确定 API 协议
 	apiProtocol := "openai-completions"
-	if req.ApiMode == "anthropic" {
+	switch req.ApiMode {
+	case "anthropic", "anthropic-messages":
 		apiProtocol = "anthropic-messages"
+	}
+
+	// Ollama 使用本地推理，apiKey 不能为空
+	apiKey := req.ApiKey
+	if req.Provider == "ollama" && apiKey == "" {
+		apiKey = "ollama-local"
+	}
+
+	// Ollama 本地模型上下文窗口和 maxTokens 参数
+	contextWindow := 131072 // 128k
+	maxTokens := 8192
+	if req.Provider == "ollama" {
+		maxTokens = 81920 // 8192 * 10，本地无限制
 	}
 
 	// 更新 agents.defaults.model.primary
@@ -1167,22 +1403,28 @@ func (s *DeployService) UpdateModelConfig(req dto.UpdateModelReq) (map[string]an
 		}
 	}
 
+	// 清除之前可能遗留的 Gemini env key
+	if envMap, ok := config["env"].(map[string]any); ok {
+		delete(envMap, "GOOGLE_API_KEY")
+	}
+
 	// 替换 models.providers（只保留新的 provider）
 	if models, ok := config["models"].(map[string]any); ok {
 		models["providers"] = map[string]any{
 			req.Provider: map[string]any{
 				"api":     apiProtocol,
-				"apiKey":  req.ApiKey,
+				"apiKey":  apiKey,
 				"baseUrl": req.BaseUrl,
 				"models": []map[string]any{
 					{
-						"contextWindow": 128000,
+						"contextWindow": contextWindow,
 						"cost": map[string]any{
 							"cacheRead": 0, "cacheWrite": 0,
 							"input": 0, "output": 0,
 						},
 						"id":        modelName,
-						"maxTokens": 8192,
+						"input":     []string{"text"},
+						"maxTokens": maxTokens,
 						"name":      modelName,
 						"reasoning": false,
 					},
@@ -1197,6 +1439,7 @@ func (s *DeployService) UpdateModelConfig(req dto.UpdateModelReq) (map[string]an
 
 	// 重启服务使配置生效（根据部署模式选择重启方式）
 	if getDeployMode() == "local" {
+		killOpenclawProcess()
 		if out, err := exec.Command("systemctl", "restart", "openclaw").CombinedOutput(); err != nil {
 			return nil, fmt.Errorf("重启服务失败: %s", strings.TrimSpace(string(out)))
 		}
@@ -1289,7 +1532,8 @@ func (s *DeployService) TestApiConnection(req dto.TestApiReq) (*dto.TestApiResp,
 		testMethod = "POST"
 		testBody = strings.NewReader(`{"model":"test","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`)
 	case "gemini":
-		testUrl = baseUrl + "/v1beta/models?key=" + req.ApiKey
+		// Google Generative AI: GET /v1beta/models（用 header 认证）
+		testUrl = baseUrl + "/v1beta/models"
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -1312,7 +1556,8 @@ func (s *DeployService) TestApiConnection(req dto.TestApiReq) (*dto.TestApiResp,
 		httpReq.Header.Set("x-api-key", req.ApiKey)
 		httpReq.Header.Set("anthropic-version", "2023-06-01")
 	case "gemini":
-		// Gemini 用 query param 传 key，不设 header
+		// Google Generative AI 使用 x-goog-api-key header
+		httpReq.Header.Set("x-goog-api-key", req.ApiKey)
 	default:
 		httpReq.Header.Set("Authorization", "Bearer "+req.ApiKey)
 	}
@@ -1362,7 +1607,7 @@ func (s *DeployService) generateComposeFile(req dto.DeployReq, dataDir string) s
 	return fmt.Sprintf(`services:
   gmssh-openclaw:
     container_name: gmssh-openclaw
-    image: gmssh/openclaw:2026.02.17
+    image: docker-rep.gmssh.com/openclaw/gmssh-openclaw:2026.03.11
     restart: unless-stopped
     environment:
       - HOME=/home/node
@@ -1425,9 +1670,66 @@ func (s *DeployService) generateOpenClawConfig(req dto.DeployReq) map[string]any
 	}
 
 	// 根据提供商确定 API 协议
-	apiProtocol := "openai-completions"
-	if req.Provider == "anthropic" || req.Provider == "minimax" {
+	// 优先使用前端显式传入的 ApiMode（自定义模式下用户可以选择 anthropic-messages 等）
+	apiProtocol := req.ApiMode
+	if apiProtocol == "" {
+		// 未传入时按供应商默认
+		apiProtocol = "openai-completions"
+		if req.Provider == "anthropic" || req.Provider == "minimax" {
+			apiProtocol = "anthropic-messages"
+		}
+	}
+	// 规范化协议值：前端可能传 "anthropic" / "openai" 简写，OpenClaw 配置需要完整屗面量
+	switch apiProtocol {
+	case "anthropic":
 		apiProtocol = "anthropic-messages"
+	case "openai":
+		apiProtocol = "openai-completions"
+	case "gemini":
+		// gemini 协议值直接透传，无需变换
+	}
+
+	// Ollama 使用本地推理，apiKey 不能为空，否则部分版本 OpenClaw 会拒绝
+	apiKey := req.ApiKey
+	if req.Provider == "ollama" && apiKey == "" {
+		apiKey = "ollama-local"
+	}
+
+	// Ollama 本地模型上下文窗口和 maxTokens 参数
+	contextWindow := 131072 // 128k
+	maxTokens := 8192
+	if req.Provider == "ollama" {
+		maxTokens = 81920 // 8192 * 10，本地无限制
+	}
+
+	// ====== Gemini 特殊处理：使用 OpenClaw 内置 google 供应商 ======
+	if req.Provider == "gemini" {
+		return map[string]any{
+			"env": map[string]any{
+				"GOOGLE_API_KEY": req.ApiKey,
+			},
+			"agents": map[string]any{
+				"defaults": map[string]any{
+					"model": map[string]any{
+						"primary": modelRef,
+					},
+				},
+			},
+			"gateway": map[string]any{
+				"auth": map[string]any{
+					"mode":  "token",
+					"token": req.Token,
+				},
+				"bind": "lan",
+				"controlUi": map[string]any{
+					"allowInsecureAuth":                        true,
+					"dangerouslyAllowHostHeaderOriginFallback": true,
+					"dangerouslyDisableDeviceAuth":             true,
+				},
+				"mode": "local",
+				"port": req.WebPort,
+			},
+		}
 	}
 
 	return map[string]any{
@@ -1445,7 +1747,9 @@ func (s *DeployService) generateOpenClawConfig(req dto.DeployReq) map[string]any
 			},
 			"bind": "lan",
 			"controlUi": map[string]any{
-				"allowInsecureAuth": true,
+				"allowInsecureAuth":                        true,
+				"dangerouslyAllowHostHeaderOriginFallback": true,
+				"dangerouslyDisableDeviceAuth":             true,
 			},
 			"mode": "local",
 			"port": req.WebPort,
@@ -1455,11 +1759,11 @@ func (s *DeployService) generateOpenClawConfig(req dto.DeployReq) map[string]any
 			"providers": map[string]any{
 				req.Provider: map[string]any{
 					"api":     apiProtocol,
-					"apiKey":  req.ApiKey,
+					"apiKey":  apiKey,
 					"baseUrl": baseUrl,
 					"models": []map[string]any{
 						{
-							"contextWindow": 128000,
+							"contextWindow": contextWindow,
 							"cost": map[string]any{
 								"cacheRead":  0,
 								"cacheWrite": 0,
@@ -1467,7 +1771,8 @@ func (s *DeployService) generateOpenClawConfig(req dto.DeployReq) map[string]any
 								"output":     0,
 							},
 							"id":        modelName,
-							"maxTokens": 8192,
+							"input":     []string{"text"},
+							"maxTokens": maxTokens,
 							"name":      modelName,
 							"reasoning": false,
 						},
@@ -1630,4 +1935,27 @@ func addDeployLog(msg string) {
 
 func addDeployLogLocked(msg string) {
 	deployLogs = append(deployLogs, msg)
+}
+
+// GetOpenClawConfigDirPath 返回 OpenClaw 配置目录路径（区分部署模式）
+func (s *DeployService) GetOpenClawConfigDirPath() map[string]any {
+	var dir string
+	if getDeployMode() == "local" {
+		dir = getOpenClawConfigDir() // ~/.openclaw
+	} else {
+		dir = filepath.Join(getDataDir(), "conf") // /opt/gmclaw/conf
+	}
+	return map[string]any{"path": dir, "mode": getDeployMode()}
+}
+
+// parseNodeMajorVersion 从 "v22.22.1" 类似字符串中解析出主要版本号
+func parseNodeMajorVersion(v string) int {
+	v = strings.TrimPrefix(v, "v")
+	parts := strings.Split(v, ".")
+	if len(parts) > 0 {
+		var major int
+		fmt.Sscanf(parts[0], "%d", &major)
+		return major
+	}
+	return 0
 }

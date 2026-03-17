@@ -163,6 +163,7 @@ const currentPhase = computed(() => {
 })
 
 let pollTimer = null
+let finishedLogged = false  // 守卫：防止并发请求重复输出完成/失败日志
 
 function getTime() {
   const d = new Date()
@@ -192,7 +193,8 @@ async function pollLogs() {
       progressPercent.value = Math.min(90, Math.round(progressPercent.value + Math.random() * 15 + 5))
     }
 
-    if (result.finished) {
+    if (result.finished && !finishedLogged) {
+      finishedLogged = true
       clearInterval(pollTimer)
       pollTimer = null
 

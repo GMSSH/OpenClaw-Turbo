@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,10 +24,12 @@ var channelLock sync.Mutex
 
 // 通道 → 需要安装的插件映射
 var channelPluginMap = map[string]string{
-	"wecom-app": "@openclaw-china/wecom-app",
+	"wecom": "@openclaw-china/wecom",
 	"qqbot":     "@openclaw-china/qqbot",
 	"dingtalk":  "@openclaw-china/dingtalk",
 }
+
+
 
 // 通道 → 自带插件映射（只需 enable）
 var channelEnableMap = map[string]string{
@@ -38,13 +42,32 @@ const containerName = "gmssh-openclaw"
 // runClawCmd 根据部署模式执行 openclaw 命令
 func runClawCmd(args ...string) ([]byte, error) {
 	if getDeployMode() == "local" {
-		cmd := exec.Command("openclaw", args...)
-		cmd.Dir = getLocalDeployDir()
-		return cmd.CombinedOutput()
+		// 通过 bash -lc 执行，确保完整 shell 环境、PATH 和 Node.js 可用
+		// CI=true 跳过 npm/openclaw 的交互确认提示，避免 pipe 下卡死
+		var safeArgs []string
+		for _, a := range args {
+			if strings.Contains(a, " ") || strings.Contains(a, "@") {
+				safeArgs = append(safeArgs, fmt.Sprintf("'%s'", a))
+			} else {
+				safeArgs = append(safeArgs, a)
+			}
+		}
+		cmdStr := fmt.Sprintf("cd %s && CI=true openclaw %s", getLocalDeployDir(), strings.Join(safeArgs, " "))
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "bash", "-lc", cmdStr).CombinedOutput()
+		// openclaw 内部 npm/npx 崩溃时进程可能挂起，超时后检测真实错误
+		if err != nil && strings.Contains(string(out), "npm pack failed") {
+			return out, fmt.Errorf("npm/node 环境异常（可能存在多套 npm 冲突）: %s", extractNpmError(string(out)))
+		}
+		return out, err
 	}
 	// Docker: 先尝试执行
-	dockerArgs := append([]string{"exec", containerName, "openclaw"}, args...)
-	out, err := exec.Command("docker", dockerArgs...).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	dockerArgs := append([]string{"exec", "-e", "CI=true", containerName, "openclaw"}, args...)
+	log.Printf("[runClawCmd] docker %s", strings.Join(dockerArgs, " "))
+	out, err := exec.CommandContext(ctx, "docker", dockerArgs...).CombinedOutput()
 	if err != nil && strings.Contains(string(out), "pairing required") {
 		// 自动审批配对 + 重启容器让 gateway 重载 paired 列表
 		if autoApproveDevicePairing() {
@@ -60,11 +83,114 @@ func runClawCmd(args ...string) ([]byte, error) {
 				}
 			}
 			// 重试一次
-			retryArgs := append([]string{"exec", containerName, "openclaw"}, args...)
-			return exec.Command("docker", retryArgs...).CombinedOutput()
+			ctx2, cancel2 := context.WithTimeout(context.Background(), 180*time.Second)
+			defer cancel2()
+			retryArgs := append([]string{"exec", "-e", "CI=true", containerName, "openclaw"}, args...)
+			return exec.CommandContext(ctx2, "docker", retryArgs...).CombinedOutput()
 		}
 	}
 	return out, err
+}
+
+// nodeBinDir 缓存：进程生命周期内只探测一次 node 所在目录
+var (
+	nodeBinDirOnce  sync.Once
+	nodeBinDirCache string
+)
+
+// resolveNodeBinDir 返回登录 shell 中 node 可执行文件所在目录（懒加载，仅执行一次）
+func resolveNodeBinDir() string {
+	nodeBinDirOnce.Do(func() {
+		out, err := exec.Command("bash", "-lc", "dirname $(which node) 2>/dev/null").Output()
+		if err == nil {
+			dir := strings.TrimSpace(string(out))
+			if dir != "" && dir != "." {
+				nodeBinDirCache = dir
+			}
+		}
+	})
+	return nodeBinDirCache
+}
+
+// repairNpmSymlink 检测系统 /usr/bin/npm 是否为坏掉的 apt 残留脚本，
+// 若是则把它重新指向 nvm 管理的正确 npm，避免 openclaw 内部 spawn npm 时选错。
+// 无 root 权限时静默跳过（不影响正常流程）。
+var repairNpmOnce sync.Once
+
+func repairNpmSymlink() {
+	repairNpmOnce.Do(func() {
+		const sysnpm = "/usr/bin/npm"
+		target, err := os.Readlink(sysnpm)
+		if err != nil {
+			return // 不是 symlink 或不存在，无需处理
+		}
+		// apt 装的坏 npm symlink 指向 .js 文件
+		if !strings.HasSuffix(target, ".js") {
+			return // 已经指向二进制，无需修复
+		}
+		// 找 nvm 管理的正确 npm 路径
+		nvmNpm, err := exec.Command("bash", "-lc", "which npm 2>/dev/null").Output()
+		if err != nil {
+			return
+		}
+		correctNpm := strings.TrimSpace(string(nvmNpm))
+		if correctNpm == "" || correctNpm == sysnpm {
+			return
+		}
+		// 重新指向正确的 npm（忽略权限错误，不影响正常流程）
+		if err := os.Remove(sysnpm); err != nil {
+			return
+		}
+		if err := os.Symlink(correctNpm, sysnpm); err != nil {
+			// 修复失败时还原（尽力）
+			os.Symlink(target, sysnpm) //nolint
+			return
+		}
+		log.Printf("[channel] 已自动修复 %s → %s（原指向损坏的 apt npm）", sysnpm, correctNpm)
+	})
+}
+
+// runPluginInstall 专用于插件安装：修复 npm 环境后，在 PATH 最前面注入正确的 node/npm 目录，
+// 避免系统 apt npm（/usr/share/nodejs）与 nvm npm 共存时 openclaw 选错 npm
+func runPluginInstall(pluginName string) ([]byte, error) {
+	// 安装前先修复可能损坏的 /usr/bin/npm symlink（仅执行一次）
+	repairNpmSymlink()
+	if getDeployMode() == "local" {
+		pathPrefix := ""
+		if dir := resolveNodeBinDir(); dir != "" {
+			pathPrefix = fmt.Sprintf("export PATH=%s:$PATH && ", dir)
+		}
+		cmdStr := fmt.Sprintf("%scd %s && CI=true openclaw plugins install '%s'",
+			pathPrefix, getLocalDeployDir(), pluginName)
+		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "bash", "-lc", cmdStr).CombinedOutput()
+		if err != nil && strings.Contains(string(out), "npm pack failed") {
+			return out, fmt.Errorf("npm/node 环境异常（可能存在多套 npm 冲突）: %s", extractNpmError(string(out)))
+		}
+		return out, err
+	}
+	// Docker 模式
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	dockerArgs := []string{"exec", "-e", "CI=true", containerName, "openclaw", "plugins", "install", pluginName}
+	out, err := exec.CommandContext(ctx, "docker", dockerArgs...).CombinedOutput()
+	if err != nil && strings.Contains(string(out), "npm pack failed") {
+		return out, fmt.Errorf("npm/node 环境异常（可能存在多套 npm 冲突）: %s", extractNpmError(string(out)))
+	}
+	return out, err
+}
+
+
+// extractNpmError 从 npm 崩溃输出中提取关键错误行
+func extractNpmError(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Error:") || strings.HasPrefix(line, "npm pack failed:") {
+			return line
+		}
+	}
+	return strings.TrimSpace(output)
 }
 
 // autoApproveDevicePairing 自动将 pending 配对请求合并到 paired 列表
@@ -206,7 +332,7 @@ func ensurePluginInstalled(channelKey string) (string, error) {
 		return "插件已存在", nil
 	}
 
-	out, err := runClawCmd("plugins", "install", pluginName)
+	out, err := runPluginInstall(pluginName)
 	output := strings.TrimSpace(string(out))
 
 	if strings.Contains(output, "already exists") || strings.Contains(output, "already") {
@@ -328,12 +454,67 @@ func (s *ChannelService) SaveChannel(req map[string]any) (map[string]any, error)
 		}
 	}
 
-	// 钉钉：固定写入 enableAICard: false
-	if channelKey == "dingtalk" {
-		channelConfig["enableAICard"] = false
+	// 企业微信：新格式 channels.wecom，只需 botId + secret，mode 固定为 ws
+	if channelKey == "wecom" {
+		channelConfig = map[string]any{
+			"enabled": req["enabled"],
+			"mode":    "ws",
+			"botId":   req["botId"],
+			"secret":  req["secret"],
+		}
 	}
 
-	// Discord: 从 token + guildId 构建完整配置
+	// 钉钉：多账号结构，自动从 openclaw.json 读取网关 token 注入每个账号
+	if channelKey == "dingtalk" {
+		// 读取网关 token
+		gatewayToken := ""
+		if gw, ok := config["gateway"].(map[string]any); ok {
+			if auth, ok := gw["auth"].(map[string]any); ok {
+				if t, ok := auth["token"].(string); ok {
+					gatewayToken = t
+				}
+			}
+		}
+
+		accounts := map[string]any{}
+		// 前端传来 accounts 数组：[{ name, clientId, clientSecret }...]
+		if rawAccounts, ok := req["accounts"].([]any); ok && len(rawAccounts) > 0 {
+			for i, item := range rawAccounts {
+				if acc, ok := item.(map[string]any); ok {
+					botKey := fmt.Sprintf("bot%d", i+1)
+					accounts[botKey] = map[string]any{
+						"name":         acc["name"],
+						"clientId":     acc["clientId"],
+						"clientSecret": acc["clientSecret"],
+						"gatewayToken": gatewayToken,
+						"enableAICard": true,
+					}
+				}
+			}
+		}
+		if len(accounts) == 0 {
+			// 兼容旧格式（单账号直接传字段）
+			accounts["bot1"] = map[string]any{
+				"name":         req["name"],
+				"clientId":     req["clientId"],
+				"clientSecret": req["clientSecret"],
+				"gatewayToken": gatewayToken,
+				"enableAICard": true,
+			}
+		}
+		channelConfig = map[string]any{
+			"enabled":               req["enabled"],
+			"accounts":              accounts,
+			"enableAICard":          true,
+			"longTaskNoticeDelayMs": 30000,
+			"maxFileSizeMB":         100,
+			"inboundMedia": map[string]any{
+				"dir":      "~/.openclaw/media/dingtalk/inbound",
+				"keepDays": 7,
+			},
+		}
+	}
+
 	if channelKey == "discord" {
 		token, _ := req["token"].(string)
 		guildId, _ := req["guildId"].(string)

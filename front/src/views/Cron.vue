@@ -9,9 +9,9 @@
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
               <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            定时任务
+            {{ t('cron.title') }}
           </h2>
-          <span class="header-hint">管理 OpenClaw 的 Cron 定时任务调度</span>
+          <span class="header-hint">{{ t('cron.subtitle') }}</span>
         </div>
         <div class="header-actions">
           <button class="refresh-btn" @click="fetchJobs()" :disabled="loading" title="刷新">
@@ -22,7 +22,7 @@
             <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          新增任务
+          {{ t('cron.addJob') }}
         </button>
         </div>
       </div>
@@ -34,8 +34,8 @@
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
           <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <p>暂无定时任务</p>
-        <button class="add-btn small" @click="openAddForm">创建第一个任务</button>
+        <p>{{ t('cron.noJobs') }}</p>
+        <button class="add-btn small" @click="openAddForm">{{ t('cron.createFirst') }}</button>
       </div>
       <div v-else class="job-list">
         <div v-for="job in jobs" :key="job.id" class="job-card" :class="{ disabled: !job.enabled }">
@@ -43,7 +43,7 @@
           <div class="job-top-row">
             <div class="job-title-area">
               <span class="job-name">{{ job.name }}</span>
-              <span v-if="job.sessionTarget" class="session-badge" :class="job.sessionTarget">{{ job.sessionTarget === 'isolated' ? '独立' : '主会话' }}</span>
+              <span v-if="job.sessionTarget" class="session-badge" :class="job.sessionTarget">{{ job.sessionTarget === 'isolated' ? t('cron.sessionIsolated') : t('cron.sessionMain') }}</span>
             </div>
             <n-switch size="small" :value="job.enabled" :loading="togglingId === job.id" @update:value="v => toggleJob(job, v)" />
           </div>
@@ -71,41 +71,41 @@
             <n-tooltip trigger="hover"><template #trigger><button class="icon-btn" @click="doRunJob(job.id)" :disabled="runningId === job.id">
               <svg v-if="runningId !== job.id" viewBox="0 0 24 24" width="13" height="13" fill="none"><polygon points="5,3 19,12 5,21" fill="currentColor"/></svg>
               <div v-else class="mini-spinner"></div>
-            </button></template>执行</n-tooltip>
+            </button></template>{{ t('cron.tooltipRun') }}</n-tooltip>
             <n-tooltip trigger="hover"><template #trigger><button class="icon-btn" @click="openEditForm(job)">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button></template>编辑</n-tooltip>
+            </button></template>{{ t('cron.tooltipEdit') }}</n-tooltip>
             <n-tooltip trigger="hover"><template #trigger><button class="icon-btn" @click="viewRuns(job)">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/></svg>
-            </button></template>历史</n-tooltip>
+            </button></template>{{ t('cron.tooltipHistory') }}</n-tooltip>
             <n-tooltip trigger="hover"><template #trigger><button class="icon-btn danger" @click="doRemoveJob(job)" :disabled="deletingId === job.id">
               <div v-if="deletingId === job.id" class="mini-spinner"></div>
               <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button></template>删除</n-tooltip>
+            </button></template>{{ t('cron.tooltipDelete') }}</n-tooltip>
           </div>
         </div>
       </div>
 
       <!-- 新增/编辑弹窗 -->
-      <n-modal v-model:show="showForm" preset="card" :title="editingJob ? '编辑任务' : '新增定时任务'" style="max-width: 560px;" :bordered="false" :mask-closable="false" :segmented="{ footer: 'soft' }">
+      <n-modal v-model:show="showForm" preset="card" :title="editingJob ? t('cron.editJobTitle') : t('cron.addJobTitle')" style="max-width: 560px;" :bordered="false" :mask-closable="false" :segmented="{ footer: 'soft' }">
         <div class="form-body">
           <!-- 任务名称 -->
           <div class="form-group">
-            <label class="form-label">任务名称 <span class="required">*</span></label>
-            <n-input v-model:value="form.name" placeholder="如：早间摘要、定时清理" size="small" />
+            <label class="form-label">{{ t('cron.fieldName') }} <span class="required">*</span></label>
+            <n-input v-model:value="form.name" :placeholder="t('cron.fieldNamePlaceholder')" size="small" />
           </div>
 
           <!-- 描述 -->
           <div class="form-group">
-            <label class="form-label">描述</label>
-            <n-input v-model:value="form.desc" placeholder="任务用途说明（可选）" size="small" />
+            <label class="form-label">{{ t('cron.fieldDesc') }}</label>
+            <n-input v-model:value="form.desc" :placeholder="t('cron.fieldDescPlaceholder')" size="small" />
           </div>
 
           <!-- 请求方式 -->
           <div class="form-group">
-            <label class="form-label">请求方式</label>
+            <label class="form-label">{{ t('cron.fieldPayload') }}</label>
             <n-radio-group v-model:value="form.payloadKind" size="small" class="schedule-tabs" :theme-overrides="segmentTheme">
-              <n-radio-button value="text">文本</n-radio-button>
+              <n-radio-button value="text">{{ t('cron.payloadText') }}</n-radio-button>
               <n-radio-button value="event">Agent</n-radio-button>
             </n-radio-group>
           </div>
@@ -123,11 +123,11 @@
 
           <!-- 调度方式 -->
           <div class="form-group">
-            <label class="form-label">调度方式</label>
+            <label class="form-label">{{ t('cron.fieldSchedule') }}</label>
             <n-radio-group v-model:value="form.scheduleKind" size="small" class="schedule-tabs" :theme-overrides="segmentTheme">
-              <n-radio-button value="cron">Cron 表达式</n-radio-button>
-              <n-radio-button value="every">固定间隔</n-radio-button>
-              <n-radio-button value="at">一次性</n-radio-button>
+              <n-radio-button value="cron">{{ t('cron.schedCron') }}</n-radio-button>
+              <n-radio-button value="every">{{ t('cron.schedEvery') }}</n-radio-button>
+              <n-radio-button value="at">{{ t('cron.schedAt') }}</n-radio-button>
             </n-radio-group>
           </div>
 
@@ -135,27 +135,27 @@
           <div v-if="form.scheduleKind === 'cron'" class="form-group schedule-detail">
             <n-input v-model:value="form.cron" placeholder="0 7 * * *  (分 时 日 月 周)" size="small" />
             <div class="cron-hints">
-              <span class="hint-chip" @click="form.cron = '0 * * * *'">每小时</span>
-              <span class="hint-chip" @click="form.cron = '0 7 * * *'">每天7点</span>
-              <span class="hint-chip" @click="form.cron = '0 9 * * 1'">每周一9点</span>
-              <span class="hint-chip" @click="form.cron = '0 0 1 * *'">每月1号</span>
+              <span class="hint-chip" @click="form.cron = '0 * * * *'">{{ t('cron.hintEveryHour') }}</span>
+              <span class="hint-chip" @click="form.cron = '0 7 * * *'">{{ t('cron.hintEveryDay7') }}</span>
+              <span class="hint-chip" @click="form.cron = '0 9 * * 1'">{{ t('cron.hintEveryMon9') }}</span>
+              <span class="hint-chip" @click="form.cron = '0 0 1 * *'">{{ t('cron.hintEveryMonth1') }}</span>
             </div>
           </div>
 
           <!-- 固定间隔 -->
           <div v-if="form.scheduleKind === 'every'" class="form-group schedule-detail">
             <div class="interval-row">
-              <span class="interval-label">每</span>
+              <span class="interval-label">{{ t('cron.everyPrefix') }}</span>
               <n-input-number v-model:value="form.everyValue" :min="1" placeholder="10" size="small" style="width: 100px" />
               <n-select v-model:value="form.everyUnit" :options="intervalUnits" size="small" style="width: 90px" />
-              <span class="interval-label">执行一次</span>
+              <span v-if="t('cron.everySuffix')" class="interval-label">{{ t('cron.everySuffix') }}</span>
             </div>
           </div>
 
           <!-- 一次性 -->
           <div v-if="form.scheduleKind === 'at'" class="form-group schedule-detail">
             <n-config-provider :locale="zhCN" :date-locale="dateZhCN">
-              <n-date-picker v-model:value="form.atTimestamp" type="datetime" placeholder="选择执行时间" size="small" style="width:100%" format="yyyy-MM-dd HH:mm" />
+              <n-date-picker v-model:value="form.atTimestamp" type="datetime" :placeholder="t('cron.schedAtPlaceholder')" size="small" style="width:100%" format="yyyy-MM-dd HH:mm" />
             </n-config-provider>
           </div>
 
@@ -165,26 +165,26 @@
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" :style="{ transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }">
                 <polyline points="9,6 15,12 9,18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span>高级设置</span>
+              <span>{{ t('cron.advancedSettings') }}</span>
               <span class="advanced-summary" v-if="!showAdvanced">{{ advancedSummary }}</span>
             </div>
             <div v-show="showAdvanced" class="advanced-body">
               <!-- Session 会话模式 -->
               <div class="form-group">
-                <label class="form-label">会话模式</label>
+                <label class="form-label">{{ t('cron.fieldSession') }}</label>
                 <div class="radio-desc-group">
                   <label class="radio-desc-item" :class="{ active: form.session === 'isolated' }" @click="form.session = 'isolated'">
                     <span class="radio-dot" :class="{ checked: form.session === 'isolated' }"></span>
                     <div>
-                      <span class="rdi-title">Isolated <span class="rdi-badge recommended">推荐</span></span>
-                      <span class="rdi-desc">独立沙箱，后台静默执行，不影响聊天记录</span>
+                       <span class="rdi-title">{{ t('cron.sessionIsolatedTitle') }} <span class="rdi-badge recommended">{{ t('cron.sessionIsolatedRecommended') }}</span></span>
+                       <span class="rdi-desc">{{ t('cron.sessionIsolatedDesc') }}</span>
                     </div>
                   </label>
                   <label class="radio-desc-item" :class="{ active: form.session === 'main' }" @click="form.session = 'main'">
                     <span class="radio-dot" :class="{ checked: form.session === 'main' }"></span>
                     <div>
-                      <span class="rdi-title">Main</span>
-                      <span class="rdi-desc">在主会话中执行，适合定时提醒/剧情推演</span>
+                       <span class="rdi-title">{{ t('cron.sessionMainTitle') }}</span>
+                       <span class="rdi-desc">{{ t('cron.sessionMainDesc') }}</span>
                     </div>
                   </label>
                 </div>
@@ -192,20 +192,20 @@
 
               <!-- Wake Mode 唤醒模式 -->
               <div class="form-group">
-                <label class="form-label">唤醒模式</label>
+                <label class="form-label">{{ t('cron.fieldWakeMode') }}</label>
                 <div class="radio-desc-group">
                   <label class="radio-desc-item" :class="{ active: form.wakeMode === 'heartbeat' }" @click="form.wakeMode = 'heartbeat'">
                     <span class="radio-dot" :class="{ checked: form.wakeMode === 'heartbeat' }"></span>
                     <div>
-                      <span class="rdi-title">Next heartbeat <span class="rdi-badge recommended">推荐</span></span>
-                      <span class="rdi-desc">等待下个调度周期执行，稳定不突然触发</span>
+                       <span class="rdi-title">{{ t('cron.wakeHeartbeatTitle') }} <span class="rdi-badge recommended">{{ t('cron.wakeHeartbeatRecommended') }}</span></span>
+                       <span class="rdi-desc">{{ t('cron.wakeHeartbeatDesc') }}</span>
                     </div>
                   </label>
                   <label class="radio-desc-item" :class="{ active: form.wakeMode === 'now' }" @click="form.wakeMode = 'now'">
                     <span class="radio-dot" :class="{ checked: form.wakeMode === 'now' }"></span>
                     <div>
-                      <span class="rdi-title">Now</span>
-                      <span class="rdi-desc">保存后立即执行一次，适合即时测试</span>
+                       <span class="rdi-title">{{ t('cron.wakeNowTitle') }}</span>
+                       <span class="rdi-desc">{{ t('cron.wakeNowDesc') }}</span>
                     </div>
                   </label>
                 </div>
@@ -213,9 +213,9 @@
 
 
               <div class="form-group">
-                <label class="form-label">通知</label>
+                <label class="form-label">{{ t('cron.fieldNotify') }}</label>
                 <n-radio-group v-model:value="form.deliveryMode" size="small" :theme-overrides="segmentTheme">
-                  <n-radio-button value="none">不通知</n-radio-button>
+                  <n-radio-button value="none">{{ t('cron.notifyNone') }}</n-radio-button>
                   <n-radio-button value="webhook">Webhook</n-radio-button>
                 </n-radio-group>
               </div>
@@ -227,16 +227,16 @@
         </div>
         <template #footer>
           <div class="form-footer">
-            <n-button @click="showForm = false" size="small" quaternary>取消</n-button>
-            <n-button type="primary" @click="submitForm" :loading="submitting" size="small">{{ editingJob ? '保存修改' : '创建任务' }}</n-button>
+            <n-button @click="showForm = false" size="small" quaternary>{{ t('cron.cancel') }}</n-button>
+            <n-button type="primary" @click="submitForm" :loading="submitting" size="small">{{ editingJob ? t('cron.saveEdit') : t('cron.createJob') }}</n-button>
           </div>
         </template>
       </n-modal>
 
       <!-- 运行历史弹窗 -->
-      <n-modal v-model:show="showRuns" preset="card" :title="`运行历史 — ${runsJobName}`" style="max-width: 580px;" :bordered="false">
+      <n-modal v-model:show="showRuns" preset="card" :title="t('cron.historyTitle') + ' — ' + runsJobName" style="max-width: 580px;" :bordered="false">
         <div v-if="loadingRuns" class="loading-state"><div class="loading-spinner"></div></div>
-        <div v-else-if="!runs.length" class="empty-hint">暂无运行记录</div>
+        <div v-else-if="!runs.length" class="empty-hint">{{ t('cron.noHistory') }}</div>
         <div v-else class="runs-list">
           <div
             v-for="(run, i) in runs"
@@ -266,6 +266,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NSwitch, NTooltip, NModal, NInput, NInputNumber, NButton, NRadioGroup, NRadioButton, NSelect, NDatePicker, NConfigProvider } from 'naive-ui'
 import { zhCN, dateZhCN } from 'naive-ui'
 import {
@@ -275,6 +276,7 @@ import {
 import cache from '@/stores/cache'
 
 const gm = window.$gm || {}
+const { t } = useI18n()
 
 // ===== Segmented Control 主题覆盖（去掉所有 Naive UI 边框） =====
 const segmentTheme = {
@@ -297,7 +299,7 @@ async function fetchJobs() {
     jobs.value = res?.jobs || []
     cache.cronJobs = [...jobs.value]
   } catch (e) {
-    gm.message?.error?.('获取任务列表失败: ' + (e.message || ''))
+    gm.message?.error?.(t('cron.fetchFailed') + ': ' + (e.message || ''))
   } finally {
     loading.value = false
   }
@@ -325,7 +327,7 @@ async function toggleJob(job, enabled) {
     }
     await fetchJobs()
   } catch (e) {
-    gm.message?.error?.('操作失败: ' + (e.message || ''))
+    gm.message?.error?.(t('cron.toggleFailed') + ': ' + (e.message || ''))
   } finally {
     togglingId.value = ''
   }
@@ -338,10 +340,10 @@ async function doRunJob(jobId) {
   runningId.value = jobId
   try {
     await runCronJob({ jobId })
-    gm.message?.success?.('任务已触发执行')
+    gm.message?.success?.(t('cron.runSuccess'))
     await fetchJobs()
   } catch (e) {
-    gm.message?.error?.('执行失败: ' + (e.message || ''))
+    gm.message?.error?.(t('cron.runFailed') + ': ' + (e.message || ''))
   } finally {
     runningId.value = ''
   }
@@ -355,10 +357,10 @@ async function doRemoveJob(job) {
   deletingId.value = job.id
   try {
     await removeCronJob({ jobId: job.id })
-    gm.message?.success?.(`${job.name} 已删除`)
+    gm.message?.success?.(`${job.name} ${t('cron.deleteSuccess')}`)
     await fetchJobs()
   } catch (e) {
-    gm.message?.error?.('删除失败: ' + (e.message || ''))
+    gm.message?.error?.(t('cron.deleteFailed') + ': ' + (e.message || ''))
   } finally {
     deletingId.value = ''
   }
@@ -369,11 +371,11 @@ const showForm = ref(false)
 const editingJob = ref(null)
 const submitting = ref(false)
 
-const intervalUnits = [
-  { label: '分钟', value: 'm' },
-  { label: '小时', value: 'h' },
-  { label: '天', value: 'd' },
-]
+const intervalUnits = computed(() => [
+  { label: t('cron.unitMinute'), value: 'm' },
+  { label: t('cron.unitHour'), value: 'h' },
+  { label: t('cron.unitDay'), value: 'd' },
+])
 
 const defaultForm = () => ({
   name: '',
@@ -407,7 +409,7 @@ const advancedSummary = computed(() => {
 const contentPlaceholder = computed(() =>
   form.value.payloadKind === 'event'
     ? '{"event": "check_news", "topic": "AI"}'
-    : '和 AI 的对话内容，例如：搜索今日新闻并生成摘要'
+    : t('cron.contentPlaceholder')
 )
 
 function openAddForm() {
@@ -449,7 +451,7 @@ function openEditForm(job) {
 }
 
 async function submitForm() {
-  if (!form.value.name) { gm.message?.warning?.('请输入任务名称'); return }
+  if (!form.value.name) { gm.message?.warning?.(t('cron.validateName')); return }
   submitting.value = true
   try {
     const f = form.value
@@ -462,7 +464,7 @@ async function submitForm() {
       deliveryTo: f.deliveryTo,
     }
     if (f.payloadKind === 'event') {
-      try { params.payload = JSON.parse(f.eventJson) } catch { gm.message?.warning?.('系统事件 JSON 格式不正确'); submitting.value = false; return }
+      try { params.payload = JSON.parse(f.eventJson) } catch { gm.message?.warning?.(t('cron.invalidJson')); submitting.value = false; return }
     } else {
       params.message = f.message
     }
@@ -481,15 +483,15 @@ async function submitForm() {
     if (editingJob.value) {
       params.jobId = editingJob.value.id
       await editCronJob(params)
-      gm.message?.success?.('任务已更新')
+      gm.message?.success?.(t('cron.updateSuccess'))
     } else {
       await addCronJob(params)
-      gm.message?.success?.('任务创建成功')
+      gm.message?.success?.(t('cron.createSuccess'))
     }
     showForm.value = false
     await fetchJobs()
   } catch (e) {
-    gm.message?.error?.((editingJob.value ? '编辑' : '创建') + '失败: ' + (e.message || ''))
+    gm.message?.error?.((editingJob.value ? t('cron.editFailed') : t('cron.saveFailed')) + ': ' + (e.message || ''))
   } finally {
     submitting.value = false
   }
@@ -542,7 +544,7 @@ function formatSchedule(schedule) {
   if (!schedule) return '—'
   switch (schedule.kind) {
     case 'cron': return `⏰ ${schedule.expr || ''}${schedule.tz ? ' (' + schedule.tz + ')' : ''}`
-    case 'every': return `🔄 每 ${formatEveryMs(schedule.everyMs)}`
+    case 'every': return `🔄 ${t('cron.everyPrefix')} ${formatEveryMs(schedule.everyMs)}`
     case 'at': return `📌 ${schedule.at ? formatTime(new Date(schedule.at).getTime()) : formatTime(schedule.atMs)}`
     default: return schedule.kind
   }
@@ -550,10 +552,10 @@ function formatSchedule(schedule) {
 
 function formatEveryMs(ms) {
   if (!ms) return ''
-  if (ms >= 86400000) return (ms / 86400000) + ' 天'
-  if (ms >= 3600000) return (ms / 3600000) + ' 小时'
-  if (ms >= 60000) return (ms / 60000) + ' 分钟'
-  return (ms / 1000) + ' 秒'
+  if (ms >= 86400000) return (ms / 86400000) + ' ' + t('cron.durationDay')
+  if (ms >= 3600000) return (ms / 3600000) + ' ' + t('cron.durationHour')
+  if (ms >= 60000) return (ms / 60000) + ' ' + t('cron.durationMinute')
+  return (ms / 1000) + ' ' + t('cron.durationSecond')
 }
 
 function formatTime(ms) {
@@ -563,8 +565,8 @@ function formatTime(ms) {
   const diff = d.getTime() - now.getTime()
   if (diff > 0 && diff < 86400000) {
     const mins = Math.round(diff / 60000)
-    if (mins < 60) return `${mins} 分钟后`
-    return `${Math.round(mins / 60)} 小时后`
+    if (mins < 60) return t('cron.timeMinutesLater').replace('{n}', mins)
+    return t('cron.timeHoursLater').replace('{n}', Math.round(mins / 60))
   }
   const pad = n => String(n).padStart(2, '0')
   return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`

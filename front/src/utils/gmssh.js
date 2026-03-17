@@ -44,7 +44,7 @@ class GMSSHUtils {
      * 响应结构:
      * { code: 200000, data: { code: 200, data: {...}, msg: "..." }, msg: "..." }
      */
-    async request(method, params = {}) {
+    async request(method, params = {}, options = {}) {
         if (!window.$gm?.request) {
             throw new Error('$gm.request 不可用，请确认应用运行在 GMSSH 环境中')
         }
@@ -52,7 +52,7 @@ class GMSSHUtils {
         const response = await window.$gm.request({
             url: `${this.baseURL}/${method}`,
             method: 'POST',
-            timeout: 12000,
+            timeout: options.timeout ?? 12000,
             data: { params },
         })
 

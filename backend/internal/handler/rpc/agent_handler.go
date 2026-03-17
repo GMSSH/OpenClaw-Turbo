@@ -140,3 +140,12 @@ func (s *Server) GetConfiguredModels(req *gsock.Request) (any, error) {
 	}
 	return result, nil
 }
+
+// GetAgentActivity 获取 Agent 实时活跃状态和子 Agent（临时工）
+func (s *Server) GetAgentActivity(req *gsock.Request) (any, error) {
+	result, err := service.NewAgentService().GetAgentActivity()
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}

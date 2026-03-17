@@ -6,15 +6,15 @@
         <div class="header-left">
           <h2 class="page-title">
             <span v-html="icons.robot(20, 20)"></span>
-            赛博员工
+            {{ t('agents.title') }}
           </h2>
-          <span class="header-hint">创建、编排你的赛博员工团队</span>
+          <span class="header-hint">{{ t('agents.subtitle') }}</span>
         </div>
         <div class="header-actions">
           <button class="mode-switch-btn" @click="viewMode = viewMode === 'list' ? 'cyber' : 'list'" :title="viewMode === 'list' ? '指挥中心' : '返回列表'">
             <svg v-if="viewMode === 'list'" viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M8.766 8.766h6.469v6.469H8.766zm1.484 0V6.917m3.5 1.849V6.917m-3.5 10.166v-1.849m3.5 1.849v-1.849m1.484-4.984h1.849m-1.849 3.5h1.849m-10.165-3.5h1.848m-1.848 3.5h1.848" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 5.485a3.78 3.78 0 1 0-7.362 1.214a5.59 5.59 0 0 0 0 10.601A3.78 3.78 0 1 0 12 18.515m0-13.03a3.781 3.781 0 1 1 7.363 1.214a5.59 5.59 0 0 1 0 10.601A3.78 3.78 0 1 1 12 18.515" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            {{ viewMode === 'list' ? '指挥中心' : '返回列表' }}
+            {{ viewMode === 'list' ? t('agents.commandCenter') : t('agents.backToList') }}
           </button>
           <button class="refresh-btn" @click="fetchAgents()" :disabled="loading" title="刷新">
             <span :class="{ spinning: loading }" v-html="icons.refresh(16, 16)"></span>
@@ -23,51 +23,289 @@
         </div>
       </div>
 
-      <!-- ===== 指挥中心 (Cyber Topology) ===== -->
+      <!-- ===== 指挥中心: 赛博控制室 ===== -->
       <template v-if="viewMode === 'cyber'">
-        <div class="topology-viewport" ref="cyberViewportRef">
-          <div class="grid-bg"></div>
-          <div class="scan-line"></div>
-          <svg class="connections-layer" :viewBox="`0 0 ${cyberVpW} ${cyberVpH}`">
-            <defs>
-              <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="rgba(var(--jm-primary-1-rgb),0.1)" />
-                <stop offset="50%" stop-color="rgba(var(--jm-primary-1-rgb),0.5)" />
-                <stop offset="100%" stop-color="rgba(var(--jm-primary-1-rgb),0.1)" />
-              </linearGradient>
-              <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            </defs>
-            <g v-for="conn in cyberConnections" :key="conn.id">
-              <line :x1="conn.x1" :y1="conn.y1" :x2="conn.x2" :y2="conn.y2" stroke="url(#lineGrad)" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.5" />
-              <line :x1="conn.x1" :y1="conn.y1" :x2="conn.x2" :y2="conn.y2" stroke="url(#lineGrad)" stroke-width="1" filter="url(#glow)" opacity="0.3" />
-              <circle r="3" fill="var(--jm-primary-1)" opacity="0.7" filter="url(#glow)">
-                <animateMotion :dur="(3 + Math.random() * 2) + 's'" repeatCount="indefinite" :path="`M${conn.x1},${conn.y1} L${conn.x2},${conn.y2}`" />
-              </circle>
-              <circle r="3" fill="var(--jm-primary-1)" opacity="0.5">
-                <animateMotion :dur="(3 + Math.random() * 2) + 's'" repeatCount="indefinite" :path="`M${conn.x2},${conn.y2} L${conn.x1},${conn.y1}`" />
-              </circle>
-            </g>
-          </svg>
-          <div v-for="node in cyberNodes" :key="node.id" class="agent-node" :class="[node.role, node.status]" :style="{ left: node.x + 'px', top: node.y + 'px' }" @click="viewMode = 'list'; openDetail(node)">
-            <div class="pulse-ring" :class="node.status"></div>
-            <div class="pulse-ring delay" :class="node.status"></div>
-            <div class="node-core"><span class="node-icon" v-html="(icons[node.avatar] || icons.robot)(node.role === 'main' ? 28 : 22, node.role === 'main' ? 28 : 22)"></span></div>
-            <span class="node-label">{{ node.name }}</span>
-            <span class="node-status-text">{{ cyberStatusLabel(node.status) }}</span>
+        <div class="cc-wrap" ref="cyberViewportRef">
+          <!-- HUD -->
+          <div class="cc-hud">
+            <span class="cc-hud-title">{{ t('agents.cc.title') }}</span>
+            <div class="cc-hud-center">
+              <span class="hud-stat-badge working" v-if="cyberRealtimeCount('working') > 0">
+                <span class="hud-stat-dot"></span>{{ cyberRealtimeCount('working') }} {{ t('agents.cc.working') }}
+              </span>
+              <span class="hud-stat-badge online" v-if="cyberRealtimeCount('online') > 0">
+                <span class="hud-stat-dot"></span>{{ cyberRealtimeCount('online') }} 在线
+              </span>
+              <span class="hud-stat-badge idle" v-if="cyberRealtimeCount('idle') > 0">
+                <span class="hud-stat-dot"></span>{{ cyberRealtimeCount('idle') }} 空闲
+              </span>
+            </div>
+            <div class="cc-hud-right">
+              <div class="cc-gw-chip" :class="gatewayHealth.status || 'down'">
+                <span class="cc-gw-dot"></span>
+                <span>{{ t('agents.cc.gateway') }}</span>
+                <span class="cc-gw-ping" v-if="gatewayHealth.responseMs">{{ gatewayHealth.responseMs }}ms</span>
+                <span class="cc-gw-err" v-else-if="gatewayHealth.error">{{ gatewayHealth.error.slice(0,14) }}</span>
+              </div>
+              <div class="cc-token-chip" v-if="totalTokens7d > 0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                {{ formatTokens(totalTokens7d) }} 7d
+              </div>
+            </div>
           </div>
-          <div v-if="!loading && agents.length === 0" class="empty-state"><span>暂无 Agent，点击「新建 Agent」创建</span></div>
-        </div>
-        <div class="stats-bar" v-if="agents.length > 0">
-          <div class="stat-item"><span class="stat-value">{{ agents.length }}</span><span class="stat-label">Agent 总数</span></div>
-          <div class="stat-item"><span class="stat-dot idle"></span><span class="stat-value">{{ cyberCount('idle') }}</span><span class="stat-label">待命</span></div>
-          <div class="stat-item"><span class="stat-dot thinking"></span><span class="stat-value">{{ cyberCount('thinking') }}</span><span class="stat-label">思考中</span></div>
-          <div class="stat-item"><span class="stat-dot acting"></span><span class="stat-value">{{ cyberCount('acting') }}</span><span class="stat-label">执行中</span></div>
-          <div class="stat-item"><span class="stat-dot error"></span><span class="stat-value">{{ cyberCount('error') }}</span><span class="stat-label">异常</span></div>
+
+          <!-- ===== 2D 办公室画布 ===== -->
+          <div class="office-canvas" ref="ccCanvasRef">
+            <!-- 地板瓦片 -->
+            <div class="office-floor"></div>
+
+            <!-- 走廊 -->
+            <div class="office-corridor">
+              <!-- 保安身体（会翻转） -->
+              <div class="office-guard" :class="{ 'gateway-down': (gatewayHealth.status || 'down') === 'down' }">
+                <!-- fluent:person-walking-24-filled -->
+                <svg class="guard-svg" width="22" height="22" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M13 6.5A2.25 2.25 0 1 0 13 2a2.25 2.25 0 0 0 0 4.5m-2.639-.081c.185.045.35.146.493.272a3.24 3.24 0 0 0 2.904.72c.186-.044.379-.056.564-.01l.132.033a1.5 1.5 0 0 1 .919.673l1.332 2.177a1 1 0 0 0 .657.46l1.431.285a1.5 1.5 0 0 1-.587 2.942l-2.504-.5a1.5 1.5 0 0 1-.986-.688l-.183-.3a.54.54 0 0 0-.966.09a1.5 1.5 0 0 0 .17 1.389l.994 1.433a1.5 1.5 0 0 1 .265.767l.25 4.25a1.5 1.5 0 0 1-2.995.176l-.2-3.391a1 1 0 0 0-.247-.602l-.851-.968a.88.88 0 0 0-1.477.252L7.39 21.061a1.5 1.5 0 0 1-2.783-1.122l3.076-7.634q.02-.081.052-.162l.565-1.47a.469.469 0 0 0-.865-.362l-1.268 2.806a1.5 1.5 0 0 1-2.735-1.232l1.624-3.61a1.5 1.5 0 0 1 .846-.792l3.075-1.14a1.5 1.5 0 0 1 .883-.049z"/>
+                </svg>
+              </div><!-- /office-guard -->
+            </div><!-- /office-corridor -->
+
+            <!-- Agent 拓扑工位区 -->
+            <div class="office-desks" ref="desksContainerRef">
+              <!-- org 连线 SVG 层 -->
+              <svg class="org-lines-svg" xmlns="http://www.w3.org/2000/svg" v-if="orgLines.length > 0">
+                <defs>
+                  <linearGradient id="flowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.7"/>
+                    <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.3"/>
+                  </linearGradient>
+                </defs>
+                <path v-for="(line, i) in orgLines" :key="i" :d="line.d"
+                  stroke="url(#flowGrad)" stroke-width="1.5" stroke-dasharray="6 4"
+                  fill="none" class="org-line"
+                />
+              </svg>
+
+              <!-- ① 主控区（居中顶行）-->
+              <div class="topology-main">
+                <div
+                  v-for="agent in agents.filter(a => a.role === 'main')"
+                  :key="agent.id"
+                  class="office-desk is-main"
+                  :class="[getEffectiveState(agent.id) || agent.status]"
+                  :data-agent-id="agent.id"
+                  @click="viewMode = 'list'; openDetail(agent)"
+                >
+                  <!-- 主控底座光环 -->
+                  <div class="main-base-ring" :class="getEffectiveState(agent.id) || agent.status"></div>
+
+                  <!-- 桌面 -->
+                  <div class="desk-surface">
+                    <div class="desk-monitor">
+                      <div class="monitor-screen" :class="getEffectiveState(agent.id) || agent.status">
+                        <div class="monitor-spark" v-if="tokenStatsMap[agent.id]?.daily?.length">
+                          <span v-for="(d,i) in (tokenStatsMap[agent.id]?.daily || []).slice(-7)" :key="i"
+                            class="mspark-bar"
+                            :style="{ height: Math.max(2, Math.min(14, d.tokens ? Math.round((d.tokens / Math.max(...tokenStatsMap[agent.id].daily.map(x=>x.tokens||0))) * 14) : 0)) + 'px' }"
+                          ></span>
+                        </div>
+                        <div class="monitor-idle-txt" v-else>_ _</div>
+                      </div>
+                      <div class="monitor-stand"></div>
+                    </div>
+                    <div class="desk-keyboard" :class="{ typing: (getEffectiveState(agent.id) || agent.status) === 'working' }"></div>
+                  </div>
+
+                  <!-- 实时活动条 -->
+                  <div class="desk-activity" :class="getEffectiveState(agent.id) || agent.status">
+                    <template v-if="(getEffectiveState(agent.id)||agent.status)==='working'">
+                      <span class="activity-dot"></span><span class="activity-txt typewriter">Working…</span>
+                    </template>
+                    <template v-else-if="realtimeStatusMap[agent.id]?.lastActive">
+                      <span class="activity-txt">{{ formatLastActive(realtimeStatusMap[agent.id].lastActive) }}</span>
+                    </template>
+                  </div>
+
+                  <!-- 人 -->
+                  <div class="desk-chair-area">
+                    <div class="pixel-person" :class="getEffectiveState(agent.id) || agent.status">
+                      <template v-if="(getEffectiveState(agent.id) || agent.status) !== 'offline'">
+                        <svg width="24" height="36" viewBox="0 0 20 30" class="person-svg">
+                          <rect x="6" y="0" width="8" height="8" rx="2" fill="currentColor"/>
+                          <rect x="8" y="2" width="2" height="2" fill="white" opacity="0.9"/>
+                          <rect x="11" y="2" width="2" height="2" fill="white" opacity="0.9"/>
+                          <rect x="5" y="9" width="10" height="9" rx="1" fill="currentColor" opacity="0.85"/>
+                          <rect x="9" y="10" width="2" height="3" rx="0.5" fill="white" opacity="0.6"/>
+                          <rect class="arm-l" x="1" y="9" width="3" height="7" rx="1" fill="currentColor" opacity="0.7"/>
+                          <rect class="arm-r" x="16" y="9" width="3" height="7" rx="1" fill="currentColor" opacity="0.7"/>
+                          <rect x="5" y="19" width="4" height="8" rx="1" fill="currentColor" opacity="0.75"/>
+                          <rect x="11" y="19" width="4" height="8" rx="1" fill="currentColor" opacity="0.75"/>
+                        </svg>
+                      </template>
+                      <template v-else>
+                        <svg width="20" height="10" viewBox="0 0 20 10" class="chair-empty-svg">
+                          <rect x="2" y="0" width="16" height="4" rx="2" fill="currentColor" opacity="0.2"/>
+                          <rect x="0" y="4" width="4" height="6" rx="1" fill="currentColor" opacity="0.15"/>
+                          <rect x="16" y="4" width="4" height="6" rx="1" fill="currentColor" opacity="0.15"/>
+                        </svg>
+                      </template>
+                    </div>
+                    <div class="desk-chair"></div>
+                  </div>
+
+                  <!-- 名牌 -->
+                  <div class="desk-nameplate">
+                    <span class="desk-agent-name">{{ agent.name }}</span>
+                    <span class="desk-role-tag main">CORE</span>
+                    <span class="desk-state" :class="getEffectiveState(agent.id) || agent.status"></span>
+                  </div>
+
+                  <!-- hover 卡片 -->
+                  <div class="desk-hover-card">
+                    <div class="dhc-row">
+                      <span class="dhc-label">最近</span>
+                      <span class="dhc-val">{{ realtimeStatusMap[agent.id]?.lastActive ? formatLastActive(realtimeStatusMap[agent.id].lastActive) : '--' }}</span>
+                    </div>
+                    <div class="dhc-row" v-if="tokenStatsMap[agent.id]?.totalTokens">
+                      <span class="dhc-label">Token</span>
+                      <span class="dhc-val">{{ formatTokens(tokenStatsMap[agent.id].totalTokens) }}</span>
+                    </div>
+                    <div class="dhc-row" v-if="tokenStatsMap[agent.id]?.sessions">
+                      <span class="dhc-label">会话</span>
+                      <span class="dhc-val">{{ tokenStatsMap[agent.id].sessions }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ② 专员区 -->
+              <div class="topology-specs" v-if="agents.filter(a => a.role !== 'main').length > 0">
+                <div
+                  v-for="agent in agents.filter(a => a.role !== 'main')"
+                  :key="agent.id"
+                  class="office-desk"
+                  :class="[getEffectiveState(agent.id) || agent.status, { 'has-error': (getEffectiveState(agent.id)||agent.status) === 'error' }]"
+                  :data-agent-id="agent.id"
+                  @click="viewMode = 'list'; openDetail(agent)"
+                >
+                  <div class="desk-surface">
+                    <div class="desk-monitor">
+                      <div class="monitor-screen" :class="getEffectiveState(agent.id) || agent.status">
+                        <div class="monitor-spark" v-if="tokenStatsMap[agent.id]?.daily?.length">
+                          <span v-for="(d,i) in (tokenStatsMap[agent.id]?.daily || []).slice(-5)" :key="i"
+                            class="mspark-bar"
+                            :style="{ height: Math.max(2, Math.min(12, d.tokens ? Math.round((d.tokens / Math.max(...tokenStatsMap[agent.id].daily.map(x=>x.tokens||0))) * 12) : 0)) + 'px' }"
+                          ></span>
+                        </div>
+                        <div class="monitor-idle-txt" v-else>_ _</div>
+                      </div>
+                      <div class="monitor-stand"></div>
+                    </div>
+                    <div class="desk-keyboard" :class="{ typing: (getEffectiveState(agent.id) || agent.status) === 'working' }"></div>
+                  </div>
+
+                  <!-- 实时活动条 -->
+                  <div class="desk-activity" :class="getEffectiveState(agent.id) || agent.status">
+                    <template v-if="(getEffectiveState(agent.id)||agent.status)==='working'">
+                      <span class="activity-dot"></span><span class="activity-txt typewriter">Working…</span>
+                    </template>
+                    <template v-else-if="realtimeStatusMap[agent.id]?.lastActive">
+                      <span class="activity-txt">{{ formatLastActive(realtimeStatusMap[agent.id].lastActive) }}</span>
+                    </template>
+                  </div>
+
+                  <div class="desk-chair-area">
+                    <div class="pixel-person" :class="getEffectiveState(agent.id) || agent.status">
+                      <template v-if="(getEffectiveState(agent.id) || agent.status) !== 'offline'">
+                        <svg width="20" height="30" viewBox="0 0 20 30" class="person-svg">
+                          <rect x="6" y="0" width="8" height="8" rx="2" fill="currentColor"/>
+                          <rect x="8" y="2" width="2" height="2" fill="white" opacity="0.9"/>
+                          <rect x="11" y="2" width="2" height="2" fill="white" opacity="0.9"/>
+                          <rect x="5" y="9" width="10" height="9" rx="1" fill="currentColor" opacity="0.85"/>
+                          <rect x="9" y="10" width="2" height="3" rx="0.5" fill="white" opacity="0.6"/>
+                          <rect class="arm-l" x="1" y="9" width="3" height="7" rx="1" fill="currentColor" opacity="0.7"/>
+                          <rect class="arm-r" x="16" y="9" width="3" height="7" rx="1" fill="currentColor" opacity="0.7"/>
+                          <rect x="5" y="19" width="4" height="8" rx="1" fill="currentColor" opacity="0.75"/>
+                          <rect x="11" y="19" width="4" height="8" rx="1" fill="currentColor" opacity="0.75"/>
+                        </svg>
+                      </template>
+                      <template v-else>
+                        <svg width="20" height="10" viewBox="0 0 20 10" class="chair-empty-svg">
+                          <rect x="2" y="0" width="16" height="4" rx="2" fill="currentColor" opacity="0.2"/>
+                          <rect x="0" y="4" width="4" height="6" rx="1" fill="currentColor" opacity="0.15"/>
+                          <rect x="16" y="4" width="4" height="6" rx="1" fill="currentColor" opacity="0.15"/>
+                        </svg>
+                      </template>
+                    </div>
+                    <div class="desk-chair"></div>
+                  </div>
+
+                  <div class="desk-nameplate">
+                    <span class="desk-agent-name">{{ agent.name }}</span>
+                    <span class="desk-state" :class="getEffectiveState(agent.id) || agent.status"></span>
+                  </div>
+                  <div class="desk-hover-card">
+                    <div class="dhc-row">
+                      <span class="dhc-label">最近</span>
+                      <span class="dhc-val">{{ realtimeStatusMap[agent.id]?.lastActive ? formatLastActive(realtimeStatusMap[agent.id].lastActive) : '--' }}</span>
+                    </div>
+                    <div class="dhc-row" v-if="tokenStatsMap[agent.id]?.totalTokens">
+                      <span class="dhc-label">Token</span>
+                      <span class="dhc-val">{{ formatTokens(tokenStatsMap[agent.id].totalTokens) }}</span>
+                    </div>
+                    <div class="dhc-row" v-if="tokenStatsMap[agent.id]?.sessions">
+                      <span class="dhc-label">会话</span>
+                      <span class="dhc-val">{{ tokenStatsMap[agent.id].sessions }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /office-desks -->
+
+            <!-- Gateway 机房 -->
+            <div class="office-server-room" :class="gatewayHealth.status || 'down'">
+              <div class="server-room-label">{{ t('agents.cc.serverRoom') }}</div>
+              <div class="server-racks">
+                <!-- 机架 1 -->
+                <div class="server-rack">
+                  <div v-for="i in 4" :key="i" class="rack-unit" :class="[gatewayHealth.status || 'down', { blink: i === 2 && gatewayHealth.status === 'degraded' }]"></div>
+                </div>
+                <!-- 机架 2 —— 网关核心 -->
+                <div class="server-rack gw-rack">
+                  <div class="gw-rack-label">{{ t('agents.cc.gateway') }}</div>
+                  <div class="gw-rack-light" :class="gatewayHealth.status || 'down'"></div>
+                  <div class="gw-rack-sub">{{ t('agents.cc.' + (gatewayHealth.status || 'down')) }}</div>
+                </div>
+                <!-- 机架 3 -->
+                <div class="server-rack">
+                  <div v-for="i in 4" :key="i" class="rack-unit" :class="[gatewayHealth.status || 'down', { blink: i === 3 && (gatewayHealth.status || 'down') === 'down' }]"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div v-if="!loading && agents.length === 0" class="cc-empty">
+              <span>{{ t('agents.cc.empty') }}</span>
+            </div>
+          </div>
+
+          <!-- 底部状态栏 -->
+          <div class="cc-statusbar">
+            <div class="csb-g"><i class="csb-d" style="background:#2080f0"></i><b>{{ agents.length }}</b><span>{{ t('agents.cc.staff') }}</span></div>
+            <div class="csb-sep"></div>
+            <div class="csb-g" v-if="cyberRealtimeCount('working') > 0"><i class="csb-d pulse" style="background:#18a058"></i><b>{{ cyberRealtimeCount('working') }}</b><span>{{ t('agents.cc.working') }}</span></div>
+            <div class="csb-g"><i class="csb-d" style="background:#2080f0"></i><b>{{ cyberRealtimeCount('online') }}</b><span>{{ t('agents.cc.online') }}</span></div>
+            <div class="csb-g"><i class="csb-d" style="background:#f0a020"></i><b>{{ cyberRealtimeCount('idle') }}</b><span>{{ t('agents.cc.idle') }}</span></div>
+            <div class="csb-g"><i class="csb-d" style="background:#555"></i><b>{{ cyberRealtimeCount('offline') }}</b><span>{{ t('agents.cc.offline') }}</span></div>
+          </div>
         </div>
       </template>
 
-      <!-- ===== Agent 列表 / 编辑详情切换 ===== -->
+
+            <!-- ===== Agent 列表 / 编辑详情切换 ===== -->
       <template v-if="viewMode === 'list' && !editingAgent">
+
         <!-- 动态网格背景 -->
         <div class="cyber-grid-bg"></div>
 
@@ -75,12 +313,12 @@
         <div class="list-toolbar">
           <div class="search-box">
             <span class="search-icon" v-html="icons.search(14, 14)"></span>
-            <input v-model="searchQuery" type="text" placeholder="搜索 Agent..." class="search-input" />
+            <input v-model="searchQuery" type="text" :placeholder="t('agents.searchPlaceholder')" class="search-input" />
           </div>
           <div class="toolbar-actions">
             <button class="create-btn" @click="openCreateModal">
               <span v-html="icons.plus(14, 14)"></span>
-              新建 Agent
+              {{ t('agents.createAgent') }}
             </button>
           </div>
         </div>
@@ -107,7 +345,7 @@
                 <div class="card-title-area">
                   <div class="card-name">
                     {{ agent.name }}
-                    <span class="role-tag" :class="agent.role">{{ agent.role === 'main' ? '主控' : '专员' }}</span>
+                    <span class="role-tag" :class="agent.role">{{ agent.role === 'main' ? t('agents.roleTagMain') : t('agents.roleTagSpecialist') }}</span>
                   </div>
                   <div class="card-model" v-if="agent.model">{{ agent.model }}</div>
                 </div>
@@ -123,88 +361,71 @@
                 </div>
               </div>
 
-              <div class="card-desc">{{ agent.description || '暂无描述' }}</div>
+              <div class="card-desc">{{ agent.description || t('common.noData') }}</div>
 
-              <!-- 状态标签 -->
-              <div class="card-status-row">
-                <span class="status-badge" :class="agent.status">
-                  <span class="status-dot-mini" :class="agent.status"></span>
-                  {{ statusLabel(agent.status) }}
+              <!-- ===== 精巧统计行：状态 · 最近活跃 · Spark · 平均响应 ===== -->
+              <div class="card-info-bar">
+                <!-- 状态徽章 -->
+                <template v-if="getEffectiveState(agent.id)">
+                  <span class="status-badge realtime" :class="getEffectiveState(agent.id)">
+                    <span class="status-dot-mini" :class="getEffectiveState(agent.id)"></span>
+                    {{ realtimeStateLabels[getEffectiveState(agent.id)]?.label ?? getEffectiveState(agent.id) }}
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="status-badge" :class="agent.status">
+                    <span class="status-dot-mini" :class="agent.status"></span>
+                    {{ statusLabel(agent.status) }}
+                  </span>
+                </template>
+
+                <!-- 最近活跃时间 -->
+                <span v-if="realtimeStatusMap[agent.id]?.lastActive" class="infobar-sep">·</span>
+                <span v-if="realtimeStatusMap[agent.id]?.lastActive" class="infobar-item last-active">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style="vertical-align:-1px;opacity:0.6"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  {{ formatLastActive(realtimeStatusMap[agent.id].lastActive) }}
                 </span>
+
+                <!-- 弹性空白 + Token 走势图 -->
+                <div class="infobar-spacer"></div>
+                <div
+                  v-if="tokenStatsMap[agent.id]?.daily?.length"
+                  class="spark-wrap"
+                  :title="'7日 Token: ' + formatTokens(tokenStatsMap[agent.id].totalTokens)"
+                >
+                  <span
+                    v-for="(d, i) in tokenStatsMap[agent.id].daily.slice(-7)"
+                    :key="i"
+                    class="spark-bar"
+                    :style="{ height: getSparkHeight(d.tokens, tokenStatsMap[agent.id].daily) + 'px' }"
+                  ></span>
+                  <span class="spark-val">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="vertical-align:-1px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {{ formatTokens(tokenStatsMap[agent.id].totalTokens) }}
+                  </span>
+                </div>
+
+                <!-- 平均响应 -->
+                <template v-if="tokenStatsMap[agent.id]?.avgResponseMs > 0">
+                  <span class="infobar-sep">·</span>
+                  <span class="infobar-item avg-resp">{{ formatAvgResponse(tokenStatsMap[agent.id].avgResponseMs) }}</span>
+                </template>
               </div>
 
             </div>
 
             <!-- 空状态 -->
             <div v-if="filteredAgents.length === 0 && agents.length > 0" class="empty-search">
-              未找到匹配的 Agent
+              {{ t('agents.noMatch') }}
             </div>
           </div>
 
-          <!-- 右侧：团队概览面板 -->
-          <div class="team-panel">
-            <div class="panel-section">
-              <div class="panel-title">团队状态</div>
-              <!-- 环形进度 -->
-              <div class="ring-chart-wrap">
-                <svg class="ring-chart" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--jm-accent-2)" stroke-width="8" />
-                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--jm-primary-1)" stroke-width="8"
-                    :stroke-dasharray="onlineRingDash" stroke-dashoffset="0"
-                    stroke-linecap="round" transform="rotate(-90 50 50)"
-                    style="transition: stroke-dasharray 0.6s ease" />
-                </svg>
-                <div class="ring-label">
-                  <span class="ring-val">{{ onlineCount }}</span>
-                  <span class="ring-sub">/ {{ agents.length }}</span>
-                </div>
-              </div>
-              <div class="ring-hint">在线员工</div>
-            </div>
 
-            <div class="panel-section">
-              <div class="panel-title">团队组成</div>
-              <div class="team-comp">
-                <div class="comp-row">
-                  <span class="comp-dot main"></span>
-                  <span class="comp-label">主控</span>
-                  <span class="comp-val">{{ agents.filter(a => a.role === 'main').length }}</span>
-                </div>
-                <div class="comp-row">
-                  <span class="comp-dot specialist"></span>
-                  <span class="comp-label">专员</span>
-                  <span class="comp-val">{{ agents.filter(a => a.role !== 'main').length }}</span>
-                </div>
-                <div class="comp-row">
-                  <span class="comp-dot idle"></span>
-                  <span class="comp-label">待命</span>
-                  <span class="comp-val">{{ cyberCount('idle') }}</span>
-                </div>
-                <div class="comp-row">
-                  <span class="comp-dot thinking"></span>
-                  <span class="comp-label">思考中</span>
-                  <span class="comp-val">{{ cyberCount('thinking') }}</span>
-                </div>
-                <div class="comp-row">
-                  <span class="comp-dot acting"></span>
-                  <span class="comp-label">执行中</span>
-                  <span class="comp-val">{{ cyberCount('acting') }}</span>
-                </div>
-                <div class="comp-row">
-                  <span class="comp-dot error"></span>
-                  <span class="comp-label">异常</span>
-                  <span class="comp-val">{{ cyberCount('error') }}</span>
-                </div>
-              </div>
-            </div>
-
-
-          </div>
         </div>
 
         <div v-else class="loading-state">
           <div class="loading-spinner"></div>
-          <span>加载中...</span>
+          <span>{{ t('agents.loading') }}</span>
         </div>
       </template>
 
@@ -213,13 +434,13 @@
         <div class="detail-header">
           <button class="back-btn" @click="exitDetail">
             <span v-html="icons.arrowLeft(16, 16)"></span>
-            返回列表
+            {{ t('agents.backToList') }}
           </button>
           <div class="detail-info">
             <span class="detail-icon" v-html="icons.robot(20, 20)"></span>
             <span class="detail-name">{{ editingAgent.name }}</span>
             <span class="role-tag" :class="editingAgent.role">
-              {{ editingAgent.role === 'main' ? '主控' : '专员' }}
+            {{ editingAgent.role === 'main' ? t('agents.roleTagMain') : t('agents.roleTagSpecialist') }}
             </span>
           </div>
           <div class="header-actions">
@@ -227,7 +448,7 @@
             <n-dropdown v-if="editingAgent.role === 'main'" :options="presetDropdownOptions" trigger="click" @select="onPresetSelect" :to="false">
               <button class="tpl-btn">
                 <span v-html="icons.sparkles(14, 14)"></span>
-                管理风格
+                {{ t('agents.managementStyle') }}
                 <span v-html="icons.chevronDown(12, 12)"></span>
               </button>
             </n-dropdown>
@@ -235,7 +456,7 @@
             <n-dropdown v-else :options="templateDropdownOptions" trigger="click" @select="onTemplateSelect" :to="false">
               <button class="tpl-btn">
                 <span v-html="icons.star(14, 14)"></span>
-                模板
+                {{ t('agents.template') }}
                 <span v-html="icons.chevronDown(12, 12)"></span>
               </button>
             </n-dropdown>
@@ -245,16 +466,19 @@
         <!-- 灵魂注入标题 -->
         <div class="soul-inject-title">
           <span class="soul-glow"></span>
-          赋予你的 Agent 灵魂
+          {{ t('agents.soulTitle') }}
         </div>
 
-        <!-- 模式切换 -->
-        <div class="mode-toggle">
+        <!-- 模式切换（仅主控显示可视化建模） -->
+        <div
+          v-if="editingAgent?.role === 'main' || editingAgent?.id === 'main'"
+          class="mode-toggle"
+        >
           <button :class="{ active: editMode === 'visual' }" @click="editMode = 'visual'">
-            <span v-html="icons.user(14, 14)"></span> 可视化建模
+            <span v-html="icons.user(14, 14)"></span> {{ t('agents.visualMode') }}
           </button>
           <button :class="{ active: editMode === 'code' }" @click="editMode = 'code'">
-            <span v-html="icons.brainChip(14, 14)"></span> 专家模式
+            <span v-html="icons.brainChip(14, 14)"></span> {{ t('agents.expertMode') }}
           </button>
         </div>
 
@@ -264,23 +488,23 @@
           <div class="persona-section" :class="{ active: activeTab === 'IDENTITY' }">
             <div class="section-header" @click="toggleSection('IDENTITY')">
               <span class="section-icon" v-html="icons.fingerprint(16, 16)"></span>
-              <span class="section-title">身份设定</span>
-              <span class="section-hint">我是谁 · Identity</span>
+              <span class="section-title">{{ t('agents.identitySection') }}</span>
+              <span class="section-hint">{{ t('agents.identityHint') }}</span>
               <span v-if="isModified('IDENTITY')" class="section-dot"></span>
               <span class="section-chevron" :class="{ open: !collapsed.IDENTITY }" v-html="icons.chevronDown(14, 14)"></span>
             </div>
             <div class="section-body" v-show="!collapsed.IDENTITY">
               <div class="field-row">
-                <label>名称</label>
-                <n-input v-model:value="persona.identity.name" placeholder="起个名字..." size="small" />
+                <label>{{ t('agents.nameLabel') }}</label>
+                <n-input v-model:value="persona.identity.name" :placeholder="t('agents.namePlaceholder')" size="small" />
               </div>
               <div class="field-row">
-                <label>身份类型</label>
+                <label>{{ t('agents.creatureLabel') }}</label>
                 <n-select v-model:value="persona.identity.creature" :options="creatureOptions" size="small" />
               </div>
 
               <div class="field-row">
-                <label>氛围</label>
+                <label>{{ t('agents.vibeLabel') }}</label>
                 <div class="tag-group">
                   <button
                     v-for="v in vibeOptions"
@@ -298,23 +522,23 @@
           <div class="persona-section" :class="{ active: activeTab === 'USER' }">
             <div class="section-header" @click="toggleSection('USER')">
               <span class="section-icon" v-html="icons.users(16, 16)"></span>
-              <span class="section-title">服务对象</span>
-              <span class="section-hint">你是谁 · User</span>
+              <span class="section-title">{{ t('agents.userSection') }}</span>
+              <span class="section-hint">{{ t('agents.userHint') }}</span>
               <span v-if="isModified('USER')" class="section-dot"></span>
               <span class="section-chevron" :class="{ open: !collapsed.USER }" v-html="icons.chevronDown(14, 14)"></span>
             </div>
             <div class="section-body" v-show="!collapsed.USER">
               <div class="field-row">
-                <label>用户名</label>
-                <n-input v-model:value="persona.user.name" placeholder="你的名字" size="small" />
+                <label>{{ t('agents.userNameLabel') }}</label>
+                <n-input v-model:value="persona.user.name" :placeholder="t('agents.userNamePlaceholder')" size="small" />
               </div>
               <div class="field-row">
-                <label>如何称呼</label>
-                <n-input v-model:value="persona.user.callName" placeholder="Boss / 老板 / 大佬..." size="small" />
+                <label>{{ t('agents.callNameLabel') }}</label>
+                <n-input v-model:value="persona.user.callName" :placeholder="t('agents.callNamePlaceholder')" size="small" />
               </div>
               <div class="field-row">
-                <label>背景</label>
-                <n-input v-model:value="persona.user.context" type="textarea" placeholder="用户关心什么？在做什么项目？有什么偏好？" :rows="2" size="small" />
+                <label>{{ t('agents.userContextLabel') }}</label>
+                <n-input v-model:value="persona.user.context" type="textarea" :placeholder="t('agents.userContextPlaceholder')" :rows="2" size="small" />
               </div>
             </div>
           </div>
@@ -323,38 +547,38 @@
           <div class="persona-section" :class="{ active: activeTab === 'SOUL' }">
             <div class="section-header" @click="toggleSection('SOUL')">
               <span class="section-icon" v-html="icons.sparkles(16, 16)"></span>
-              <span class="section-title">性格灵魂</span>
-              <span class="section-hint">怎么聊 · Soul</span>
+              <span class="section-title">{{ t('agents.soulSection') }}</span>
+              <span class="section-hint">{{ t('agents.soulHint') }}</span>
               <span v-if="isModified('SOUL')" class="section-dot"></span>
               <span class="section-chevron" :class="{ open: !collapsed.SOUL }" v-html="icons.chevronDown(14, 14)"></span>
             </div>
             <div class="section-body" v-show="!collapsed.SOUL">
               <div class="slider-row">
-                <label>逻辑严谨度</label>
+                <label>{{ t('agents.formalityLabel') }}</label>
                 <div class="slider-labels"><span>随意</span><span>严谨</span></div>
                 <n-slider v-model:value="persona.soul.formality" :min="0" :max="100" :step="1" />
                 <div class="slider-desc">{{ sliderDesc('formality', persona.soul.formality) }}</div>
               </div>
               <div class="slider-row">
-                <label>输出熵值</label>
+                <label>{{ t('agents.verbosityLabel') }}</label>
                 <div class="slider-labels"><span>精简</span><span>详细</span></div>
                 <n-slider v-model:value="persona.soul.verbosity" :min="0" :max="100" :step="1" />
                 <div class="slider-desc">{{ sliderDesc('verbosity', persona.soul.verbosity) }}</div>
               </div>
               <div class="slider-row">
-                <label>自主决策力</label>
+                <label>{{ t('agents.initiativeLabel') }}</label>
                 <div class="slider-labels"><span>被动</span><span>主动</span></div>
                 <n-slider v-model:value="persona.soul.initiative" :min="0" :max="100" :step="1" />
                 <div class="slider-desc">{{ sliderDesc('initiative', persona.soul.initiative) }}</div>
               </div>
               <div class="slider-row">
-                <label>共情指数</label>
+                <label>{{ t('agents.empathyLabel') }}</label>
                 <div class="slider-labels"><span>理性</span><span>感性</span></div>
                 <n-slider v-model:value="persona.soul.empathy" :min="0" :max="100" :step="1" />
                 <div class="slider-desc">{{ sliderDesc('empathy', persona.soul.empathy) }}</div>
               </div>
               <div class="field-row" style="margin-top: 8px;">
-                <label>核心原则</label>
+                <label>{{ t('agents.principlesLabel') }}</label>
                 <div class="tag-group">
                   <button
                     v-for="p in principleOptions"
@@ -365,6 +589,59 @@
                   >{{ p }}</button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- AGENTS.md：主控=编排逻辑；专员=身份层+SOP（Spawn时唯一加载的文件）-->
+          <div class="persona-section" :class="{ active: activeTab === 'AGENTS' }">
+            <div class="section-header" @click="toggleSection('AGENTS')">
+              <span class="section-icon" v-html="icons.users(16, 16)"></span>
+              <span class="section-title" v-if="editingAgent?.role === 'main' || editingAgent?.id === 'main'">编排逻辑</span>
+              <span class="section-title" v-else>核心指令 / SOP</span>
+              <span class="section-hint" v-if="editingAgent?.role === 'main' || editingAgent?.id === 'main'">团队调度规则 · AGENTS</span>
+              <span class="section-hint" v-else>身份 + 标准作业程序 · AGENTS</span>
+              <span v-if="isModified('AGENTS')" class="section-dot"></span>
+              <span class="section-chevron" :class="{ open: !collapsed.AGENTS }" v-html="icons.chevronDown(14, 14)"></span>
+            </div>
+            <div class="section-body" v-show="!collapsed.AGENTS">
+              <!-- 主控：系统自动维护，提示切换专家模式查看/编辑 -->
+              <template v-if="editingAgent?.role === 'main' || editingAgent?.id === 'main'">
+                <div class="field-row">
+                  <div class="agents-md-hint">
+                    <span v-html="icons.rocketSimple(14, 14)" style="opacity:0.5;flex-shrink:0"></span>
+                    <div>
+                      主控的 <code>AGENTS.md</code> 是整个多智能体系统的<strong>编排中心</strong>：定义何时派生哪个子 Agent、任务路由规则、全局输出位置。
+                      <br/>系统每次添加专员后会自动更新基础框架，<strong>切换到「专家模式」</strong>可直接编辑调度规则。
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <!-- 专员：AGENTS.md 是其被 Spawn 时唯一读取的身份文件，必须完整说明 SOP -->
+              <template v-else>
+                <div class="field-row">
+                  <div class="agents-md-hint" style="margin-bottom:10px">
+                    <span v-html="icons.rocketSimple(14, 14)" style="opacity:0.5;flex-shrink:0"></span>
+                    <div>
+                      <strong>重要：</strong>子 Agent 被 Spawn 时<strong>只读 AGENTS.md 和 TOOLS.md</strong>。<br/>
+                      这里的内容直接成为它的系统提示词（System Prompt）——角色定义、SOP步骤、结果输出规范都需要写在这里。
+                    </div>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <label>身份 + SOP（完整内容）</label>
+                  <n-input
+                    v-model:value="files['AGENTS']"
+                    type="textarea"
+                    placeholder="## 角色定义&#10;你是 XXX 专员，你的核心职责是...&#10;&#10;## 标准作业程序&#10;1. 接到任务后先...&#10;2. 执行完毕后将结果写入...&#10;3. 最终输出 [DONE] 格式给主控..."
+                    :rows="12"
+                    size="small"
+                    @input="onAgentsMdInput"
+                  />
+                </div>
+                <div class="field-row" style="margin-top:4px">
+                  <span style="font-size:11px;opacity:0.35">建议包含：① 角色定义（你是谁、你能做什么） ② SOP步骤（先做什么再做什么） ③ 输出规范（结果写到哪个文件、用什么格式）</span>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -485,19 +762,19 @@
           <!-- 保存栏 -->
           <div class="save-bar">
             <div class="save-bar-left">
-              <span v-if="anyModified" class="modified-hint">● 有未保存的修改</span>
+              <span v-if="anyModified" class="modified-hint">{{ t('agents.modified') }}</span>
             </div>
             <div class="save-bar-right">
               <button class="tool-btn" @click="showPreview = true" title="预览生成的指令">
-                <span v-html="icons.adjustments(14, 14)"></span> 预览指令
+                <span v-html="icons.adjustments(14, 14)"></span> {{ t('agents.previewPrompt') }}
               </button>
               <button class="tool-btn" @click="resetFile" :disabled="saving">
-                <span v-html="icons.refresh(14, 14)"></span> 重置
+                <span v-html="icons.refresh(14, 14)"></span> {{ t('agents.resetFile') }}
               </button>
               <button class="tool-btn save-btn" @click="saveAllVisual" :disabled="saving || !anyModified">
                 <span v-if="saving" class="spin" v-html="icons.loader(14, 14)"></span>
                 <span v-else v-html="icons.save(14, 14)"></span>
-                保存人格
+                {{ t('agents.savePersona') }}
               </button>
             </div>
           </div>
@@ -506,7 +783,7 @@
           <div v-if="showPreview" class="preview-overlay" @click.self="showPreview = false">
             <div class="preview-panel">
               <div class="preview-header">
-                <span>指令预览</span>
+                <span>{{ t('agents.promptPreview') }}</span>
                 <button class="preview-close" @click="showPreview = false">✕</button>
               </div>
               <div class="preview-tabs">
@@ -531,15 +808,15 @@
             <div class="editor-toolbar">
               <div class="toolbar-left">
                 <span class="file-badge">{{ activeFileName }}</span>
-                <span v-if="isModified(activeTab)" class="modified-hint">● 已修改</span>
+                <span v-if="isModified(activeTab)" class="modified-hint">{{ t('agents.modifiedFile') }}</span>
               </div>
               <div class="toolbar-right">
                 <button class="tool-btn" @click="resetFile" :disabled="saving">
-                  <span v-html="icons.refresh(14, 14)"></span> 恢复默认
+                  <span v-html="icons.refresh(14, 14)"></span> {{ t('agents.restoreDefault') }}
                 </button>
                 <button class="tool-btn save-btn" @click="saveFile" :disabled="saving || !isModified(activeTab)">
                   <span v-if="saving" class="spin" v-html="icons.loader(14, 14)"></span>
-                  <span v-else v-html="icons.save(14, 14)"></span> 保存
+                  <span v-else v-html="icons.save(14, 14)"></span> {{ t('agents.save') }}
                 </button>
               </div>
             </div>
@@ -551,12 +828,12 @@
 
         <div v-if="detailLoading" class="editor-loading">
           <div class="loading-spinner"></div>
-          <span>加载中...</span>
+          <span>{{ t('agents.loading') }}</span>
         </div>
       </template>
-    </div>
 
     <!-- 创建/编辑 Agent Modal -->
+
     <n-modal
       v-model:show="showModal"
       preset="card"
@@ -566,10 +843,10 @@
       :bordered="false"
     >
       <n-form ref="formRef" :model="formData" label-placement="left" label-width="80">
-        <n-form-item label="名称" path="name">
-          <n-input v-model:value="formData.name" placeholder="支持中英文、数字、下划线、短横线" :allow-input="v => /^[\u4e00-\u9fa5a-zA-Z0-9_-]*$/.test(v)" />
+        <n-form-item :label="t('agents.nameFormLabel')" path="name">
+          <n-input v-model:value="formData.name" :placeholder="t('agents.namePlaceholderForm')" :allow-input="v => /^[\u4e00-\u9fa5a-zA-Z0-9_-]*$/.test(v)" />
         </n-form-item>
-        <n-form-item label="头像" path="avatar">
+        <n-form-item :label="t('agents.avatarLabel')" path="avatar">
           <div class="modal-avatar-grid">
             <div 
               v-for="opt in avatarOptions" 
@@ -581,42 +858,52 @@
             ></div>
           </div>
         </n-form-item>
-        <n-form-item label="角色" path="role">
-          <n-input :value="formData.role === 'main' ? '主控 (Main)' : '专员 (Specialist)'" disabled />
+        <n-form-item :label="t('agents.roleLabel')" path="role">
+          <n-input :value="formData.role === 'main' ? t('agents.roleMain') : t('agents.roleSpecialist')" disabled />
         </n-form-item>
-        <n-form-item label="从属于" path="parentId" v-if="formData.role === 'specialist'">
-          <n-select v-model:value="formData.parentId" :options="parentOptions" placeholder="选择主 Agent" clearable />
+        <n-form-item :label="t('agents.parentLabel')" path="parentId" v-if="formData.role === 'specialist'">
+          <n-select v-model:value="formData.parentId" :options="parentOptions" :placeholder="t('agents.parentPlaceholder')" clearable />
         </n-form-item>
-        <n-form-item label="描述" path="description">
-          <n-input v-model:value="formData.description" type="textarea" placeholder="这个 Agent 负责什么？" :rows="2" />
+        <n-form-item label="允许委派的Agent" path="allowAgents" v-if="formData.role === 'main' || formData.id === 'main'">
+          <n-select v-model:value="formData.allowAgents" multiple :options="allowAgentsOptions" placeholder="选择可以委派任务的专员" clearable />
         </n-form-item>
-        <n-form-item label="对话模型" path="model">
-          <n-select v-model:value="formData.model" :options="modelOptions" placeholder="选择 AI 模型" />
+        <n-form-item :label="t('agents.descLabel')" path="description">
+          <n-input v-model:value="formData.description" type="textarea" :placeholder="t('agents.descPlaceholder')" :rows="2" />
+        </n-form-item>
+        <n-form-item :label="t('agents.modelLabel')" path="model">
+          <n-select v-model:value="formData.model" :options="modelOptions" :placeholder="t('agents.modelPlaceholder')" />
         </n-form-item>
       </n-form>
       <template #footer>
         <div class="modal-footer">
-          <n-button @click="showModal = false">取消</n-button>
+          <n-button @click="showModal = false">{{ t('agents.cancel') }}</n-button>
           <n-button type="primary" @click="submitForm" :loading="submitting">
-            {{ formData.id ? '保存修改' : '创建 Agent' }}
+            {{ formData.id ? t('agents.saveForm') : t('agents.createForm') }}
           </n-button>
         </div>
       </template>
     </n-modal>
-  </div>
+    </div><!-- /agents-container -->
+  </div><!-- /agents-page -->
 </template>
 
+
 <script setup>
-import { ref, computed, reactive, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, reactive, watch, watchEffect, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NDropdown, NModal, NForm, NFormItem, NInput, NSelect, NButton, NSlider } from 'naive-ui'
 import {
   listAgents, createAgent, updateAgent, deleteAgent, getAgentDetail,
   getAgentTemplates, applyAgentTemplate, saveAgentFile, resetAgentFile,
   getConfiguredModels
 } from '@/api/agent'
+import { getAgentStatuses, getAgentTokenStats } from '@/api/agentstat'
+import { getAgentActivity } from '@/api/agent'
 import gm from '@/utils/gmssh'
 import { icons, avatarOptions } from '@/components/icons'
 import { personaPresets } from '@/components/persona-presets'
+
+const { t } = useI18n()
 
 const loading = ref(true)
 const saving = ref(false)
@@ -633,6 +920,100 @@ const modelOptions = ref([])
 const defaultModel = ref('')
 const viewMode = ref('list') // 'list' | 'cyber'
 const searchQuery = ref('')
+
+// ===== 实时状态（借鉴 bot-view，每30秒轮询一次 JSONL 文件）=====
+// state: working | online | idle | offline
+const realtimeStatusMap = ref({}) // agentId -> { state, lastActive }
+const tokenStatsMap = ref({})     // agentId -> { totalTokens, daily[] }
+let statusPollTimer = null
+let gatewayPollTimer = null
+
+// ===== Gateway 健康状态 (15s 轮询) =====
+const gatewayHealth = ref({ status: '', responseMs: 0, error: '', ok: false })
+
+async function fetchGatewayHealth() {
+  try {
+    const { getGatewayHealth } = await import('@/api/agentstat')
+    const res = await getGatewayHealth()
+    if (res) gatewayHealth.value = res
+  } catch (_) { /* 静默失败 */ }
+}
+
+
+async function fetchRealtimeStatuses() {
+  try {
+    const res = await getAgentActivity()
+    if (res?.agents) {
+      const statusMap = {}
+      res.agents.forEach(a => {
+        statusMap[a.agentId] = { state: a.state, lastActive: a.lastActive }
+      })
+      realtimeStatusMap.value = statusMap
+    }
+  } catch (_) { /* 静默失败，不影响主流程 */ }
+}
+
+async function fetchTokenStats() {
+  try {
+    const res = await getAgentTokenStats({ days: 7 })
+    if (res?.stats) {
+      const map = {}
+      res.stats.forEach(s => { map[s.agentId] = s })
+      tokenStatsMap.value = map
+    }
+  } catch (_) { /* 静默失败 */ }
+}
+
+// 获取合并后的实时状态（优先使用实时状态，回退到静态 status）
+function getEffectiveState(agentId) {
+  return realtimeStatusMap.value[agentId]?.state || null
+}
+
+// 实时状态标签
+const realtimeStateLabels = {
+  working: { label: '正在响应', color: '#18a058', dot: '#18a058' },
+  online:  { label: '在线',     color: '#2080f0', dot: '#2080f0' },
+  idle:    { label: '空闲',     color: '#f0a020', dot: '#f0a020' },
+  offline: { label: '待命',     color: '#909399', dot: '#909399' },
+}
+
+// 最近活跃时间格式化
+function formatLastActive(ms) {
+  if (!ms) return '从未'
+  const diff = Date.now() - ms
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  return `${Math.floor(diff / 86400000)} 天前`
+}
+
+// 格式化 token 数量（带 k/M 单位）
+function formatTokens(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return String(n)
+}
+
+// 平台名称映射
+function platformLabel(p) {
+  const map = { feishu: '飞书', discord: 'Discord', telegram: 'Telegram', whatsapp: 'WhatsApp', cron: '定时', main: '主控' }
+  return map[p] || p
+}
+
+// 格式化平均响应时间 ms → 人类可读
+function formatAvgResponse(ms) {
+  if (!ms) return '--'
+  if (ms < 1000) return ms + 'ms'
+  return (ms / 1000).toFixed(1) + 's'
+}
+
+// 计算 sparkline 柱高（相对于当前 daily 数据最大値）
+function getSparkHeight(tokens, daily) {
+  const max = Math.max(...(daily || []).map(d => d.tokens || 0))
+  if (!max) return 2
+  return Math.max(2, Math.round((tokens / max) * 18))
+}
+
 
 // ===== 搜索过滤 =====
 const filteredAgents = computed(() => {
@@ -659,6 +1040,18 @@ function agentMockStats(agent) {
   const tokens = ((h % 50) + 5) + 'k'
   return { tasks, uptime, tokens }
 }
+
+// ===== 赛博办公室 计算属性 =====
+const cyberMainAgents = computed(() => agents.value.filter(a => a.role === 'main'))
+const cyberSpecialists = computed(() => agents.value.filter(a => a.role !== 'main'))
+function cyberRealtimeCount(state) {
+  return agents.value.filter(a => (realtimeStatusMap.value[a.id]?.state || 'offline') === state).length
+}
+const totalTokens7d = computed(() => {
+  let sum = 0
+  Object.values(tokenStatsMap.value).forEach(s => { sum += (s.totalTokens || 0) })
+  return sum
+})
 
 // ===== 能力标签 =====
 const capabilityDefs = [
@@ -730,9 +1123,53 @@ const activityFeed = computed(() => {
 
 // ===== 指挥中心 (Cyber Topology) =====
 const cyberViewportRef = ref(null)
+const desksContainerRef = ref(null)
 const cyberVpW = ref(800)
 const cyberVpH = ref(500)
 let cyberResizeObs = null
+
+// org 连线数据
+const orgLines = ref([])
+
+function computeOrgLines() {
+  nextTick(() => {
+    const container = desksContainerRef.value
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    const desks = Array.from(container.querySelectorAll('.office-desk[data-agent-id]'))
+    if (desks.length < 2) { orgLines.value = []; return }
+
+    // 找 main 桌子
+    const mainAgent = agents.value.find(a => a.role === 'main' || a.id === 'main')
+    if (!mainAgent) { orgLines.value = []; return }
+    const mainEl = container.querySelector(`.office-desk[data-agent-id="${mainAgent.id}"]`)
+    if (!mainEl) { orgLines.value = []; return }
+
+    const mainRect = mainEl.getBoundingClientRect()
+    const mainCx = mainRect.left - containerRect.left + mainRect.width / 2
+    const mainCy = mainRect.top - containerRect.top + mainRect.height / 2
+
+    const lines = []
+    for (const agent of agents.value) {
+      if (agent.id === mainAgent.id) continue
+      const specEl = container.querySelector(`.office-desk[data-agent-id="${agent.id}"]`)
+      if (!specEl) continue
+      const specRect = specEl.getBoundingClientRect()
+      const specCx = specRect.left - containerRect.left + specRect.width / 2
+      const specCy = specRect.top - containerRect.top + specRect.height / 2
+      // 圆角折线：main 底→spec 顶
+      const mx = mainCx, my = mainRect.bottom - containerRect.top
+      const sx = specCx, sy = specRect.top - containerRect.top
+      const midY = (my + sy) / 2
+      lines.push({ d: `M ${mx} ${my} C ${mx} ${midY}, ${sx} ${midY}, ${sx} ${sy}` })
+    }
+    orgLines.value = lines
+  })
+}
+
+watch(() => agents.value.map(a => a.id).join(','), () => {
+  computeOrgLines()
+}, { flush: 'post' })
 
 function cyberStatusLabel(status) {
   const map = { idle: 'IDLE', thinking: 'THINKING...', acting: 'EXECUTING', error: 'ERROR' }
@@ -861,7 +1298,7 @@ const persona = reactive({
 // 卡片折叠状态
 const collapsed = reactive({
   IDENTITY: true, USER: true, SOUL: true,
-  TOOLS: true, BOOTSTRAP: true, HEARTBEAT: true, CONVENTIONS: true,
+  AGENTS: true, TOOLS: true, BOOTSTRAP: true, HEARTBEAT: true, CONVENTIONS: true,
 })
 function toggleSection(key) { collapsed[key] = !collapsed[key] }
 
@@ -1062,7 +1499,7 @@ function parseMarkdownToPersona() {
   setTimeout(() => { initializing.value = false }, 0)
 }
 
-const anyModified = computed(() => tabs.some(t => isModified(t.key)))
+const anyModified = computed(() => tabs.value.some(t => isModified(t.key)))
 
 async function saveAllVisual() {
   saving.value = true
@@ -1121,6 +1558,9 @@ async function fetchAgents() {
   } finally {
     loading.value = false
   }
+  // 同步拉取实时状态
+  fetchRealtimeStatuses()
+  fetchTokenStats()
 }
 
 function statusLabel(status) {
@@ -1132,7 +1572,7 @@ function statusLabel(status) {
 
 const showModal = ref(false)
 const formRef = ref(null)
-const formData = ref({ id: '', name: '', avatar: 'brain', model: '', role: 'specialist', parentId: '', description: '' })
+const formData = ref({ id: '', name: '', avatar: 'brain', model: '', role: 'specialist', parentId: '', description: '', allowAgents: [] })
 
 const modalTitle = computed(() => formData.value.id ? '编辑 Agent' : '新建 Agent')
 
@@ -1147,8 +1587,14 @@ const parentOptions = computed(() =>
     .map(a => ({ label: a.name, value: a.id }))
 )
 
+const allowAgentsOptions = computed(() =>
+  agents.value
+    .filter(a => a.role !== 'main' && a.id !== 'main')
+    .map(a => ({ label: a.name, value: a.id }))
+)
+
 function openCreateModal() {
-  formData.value = { id: '', name: '', avatar: 'brain', model: defaultModel.value, role: 'specialist', parentId: '', description: '' }
+  formData.value = { id: '', name: '', avatar: 'brain', model: defaultModel.value, role: 'specialist', parentId: '', description: '', allowAgents: [] }
   // 默认从属于主 Agent
   const mainAgent = agents.value.find(a => a.role === 'main')
   if (mainAgent) formData.value.parentId = mainAgent.id
@@ -1157,6 +1603,10 @@ function openCreateModal() {
 
 function openEditModal(agent) {
   formData.value = { ...agent }
+  // 确保 allowAgents 初始化为数组
+  if (!formData.value.allowAgents) {
+    formData.value.allowAgents = []
+  }
   showModal.value = true
 }
 
@@ -1222,17 +1672,24 @@ const files = ref({ IDENTITY: '', USER: '', SOUL: '', AGENTS: '', TOOLS: '', BOO
 const originals = ref({ IDENTITY: '', USER: '', SOUL: '', AGENTS: '', TOOLS: '', BOOTSTRAP: '', HEARTBEAT: '', CONVENTIONS: '' })
 const editorRef = ref(null)
 
-const tabs = [
+const allTabs = [
   { key: 'IDENTITY', label: 'Identity', desc: '我是谁', icon: icons.fingerprint(16, 16) },
   { key: 'USER', label: 'User', desc: '你是谁', icon: icons.users(16, 16) },
   { key: 'SOUL', label: 'Soul', desc: '怎么聊', icon: icons.sparkles(16, 16) },
-  { key: 'AGENTS', label: 'Agents', desc: '团队', icon: icons.robot(16, 16) },
   { key: 'TOOLS', label: 'Tools', desc: '工具箱', icon: icons.tool(16, 16) },
   { key: 'BOOTSTRAP', label: 'Bootstrap', desc: '入职', icon: icons.rocketSimple(16, 16) },
   { key: 'HEARTBEAT', label: 'Heartbeat', desc: '心跳', icon: icons.activity(16, 16) },
   { key: 'CONVENTIONS', label: 'Conventions', desc: '规范', icon: icons.fileCode(16, 16) },
   { key: 'MEMORY', label: 'Memory', desc: '记忆 · 可选', icon: icons.database(16, 16) },
 ]
+// AGENTS tab 根据角色动态显示不同文案
+const tabs = computed(() => {
+  const isMain = editingAgent.value && (editingAgent.value.role === 'main' || editingAgent.value.id === 'main')
+  return [
+    { key: 'AGENTS', label: 'Agents', desc: isMain ? '调度' : 'SOP', icon: icons.robot(16, 16) },
+    ...allTabs,
+  ]
+})
 
 const activeFileName = computed(() => {
   const found = filteredTabs.value.find(t => t.key === activeTab.value)
@@ -1242,8 +1699,12 @@ const activeFileName = computed(() => {
 // 根据当前编辑的 Agent 角色动态过滤 tabs
 const filteredTabs = computed(() => {
   const isMain = editingAgent.value && (editingAgent.value.role === 'main' || editingAgent.value.id === 'main')
-  if (isMain) return tabs
-  return tabs.filter(t => t.key !== 'AGENTS')
+  const all = tabs.value
+  if (isMain) return all
+  // 专员：AGENTS → TOOLS → 其余（移除 MEMORY）
+  const pick = (key) => all.find(t => t.key === key)
+  const rest = all.filter(t => !['AGENTS', 'TOOLS', 'MEMORY'].includes(t.key))
+  return [pick('AGENTS'), pick('TOOLS'), ...rest].filter(Boolean)
 })
 
 const currentContent = computed(() => files.value[activeTab.value] || '')
@@ -1251,12 +1712,14 @@ const currentContent = computed(() => files.value[activeTab.value] || '')
 function isModified(key) { return files.value[key] !== originals.value[key] }
 function switchTab(key) { activeTab.value = key }
 function onInput(e) { files.value[activeTab.value] = e.target.value }
+// AGENTS.md textarea input handler（v-model 已处理绑定，此处无需额外操作）
+function onAgentsMdInput() { /* files['AGENTS'] tracking handled by v-model */ }
 
 async function openDetail(agent) {
   editingAgent.value = agent
   detailLoading.value = true
-  activeTab.value = 'IDENTITY'
-  editMode.value = 'visual'
+  activeTab.value = (agent.role === 'main' || agent.id === 'main') ? 'IDENTITY' : 'AGENTS'
+  editMode.value = (agent.role === 'main' || agent.id === 'main') ? 'visual' : 'code'
   try {
     const res = await getAgentDetail({ id: agent.id })
     if (res?.files) {
@@ -1383,8 +1846,129 @@ async function onTemplateSelect(key) {
   }
 }
 
+// ===== 控制室: 舱位布局 + 连线 =====
+const ccCanvasRef = ref(null)
+
+function agentPodStyle(idx, total) {
+  // agents 围绕 gateway 中心布局 (相对于 cc-canvas)
+  if (total === 0) return {}
+  const angle = (2 * Math.PI * idx) / total - Math.PI / 2
+  // main agent 在上方，其余环绕
+  const isMain = agents.value[idx]?.role === 'main'
+  const r = isMain ? 160 : 190 + (idx % 2) * 30
+  const cx = 50  // % center x
+  const cy = 50  // % center y
+  const x = cx + (r / 4.2) * Math.cos(angle)
+  const y = cy + (r / 3.2) * Math.sin(angle)
+  return {
+    position: 'absolute',
+    left: x.toFixed(1) + '%',
+    top: y.toFixed(1) + '%',
+    transform: 'translate(-50%, -50%)',
+    zIndex: isMain ? 3 : 2,
+  }
+}
+
+function podHoverIn(evt, agent) {
+  const pod = evt.currentTarget
+  pod.style.transform = 'translate(-50%, -50%) translateY(-8px)'
+  pod.style.zIndex = 10
+  pod.querySelector('.pod-beam').style.opacity = '1'
+}
+function podHoverOut(evt) {
+  const pod = evt.currentTarget
+  pod.style.transform = 'translate(-50%, -50%)'
+  pod.style.zIndex = ''
+  pod.querySelector('.pod-beam').style.opacity = '0'
+}
+
+function drawConnections() {
+  const canvas = ccCanvasRef.value
+  const g = document.getElementById('cc-lines-g')
+  const gwEl = canvas?.querySelector('.cc-gateway')
+  if (!canvas || !g || !gwEl) return
+  g.innerHTML = ''
+  const pods = canvas.querySelectorAll('.cc-pod')
+  const cr = canvas.getBoundingClientRect()
+  const gwr = gwEl.getBoundingClientRect()
+  const gwCx = gwr.left - cr.left + gwr.width / 2
+  const gwCy = gwr.top - cr.top + gwr.height / 2
+  pods.forEach(pod => {
+    const pr = pod.getBoundingClientRect()
+    const px = pr.left - cr.left + pr.width / 2
+    const py = pr.top - cr.top + pr.height / 2
+    const state = pod.classList.contains('working') ? 'working'
+      : pod.classList.contains('online') ? 'online'
+      : pod.classList.contains('idle') ? 'idle' : 'offline'
+    const colors = { working:'#18a058', online:'#2080f0', idle:'#f0a020', offline:'#333' }
+    const c = colors[state]
+    // 底层光晕线
+    const glow = document.createElementNS('http://www.w3.org/2000/svg','line')
+    glow.setAttribute('x1', gwCx); glow.setAttribute('y1', gwCy)
+    glow.setAttribute('x2', px); glow.setAttribute('y2', py)
+    glow.setAttribute('stroke', c); glow.setAttribute('stroke-width', '4')
+    glow.setAttribute('stroke-opacity', '0.08')
+    g.appendChild(glow)
+    // 主连线
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line')
+    line.setAttribute('x1', gwCx); line.setAttribute('y1', gwCy)
+    line.setAttribute('x2', px); line.setAttribute('y2', py)
+    line.setAttribute('stroke', c); line.setAttribute('stroke-width', '1')
+    line.setAttribute('stroke-opacity', state === 'offline' ? '0.12' : '0.4')
+    line.setAttribute('stroke-dasharray', state === 'working' ? '6 3' : '4 6')
+    if (state === 'working' || state === 'online') {
+      const anim = document.createElementNS('http://www.w3.org/2000/svg','animate')
+      anim.setAttribute('attributeName','stroke-dashoffset')
+      anim.setAttribute('from','0'); anim.setAttribute('to','18')
+      anim.setAttribute('dur', state === 'working' ? '0.5s' : '1.5s')
+      anim.setAttribute('repeatCount','indefinite')
+      line.appendChild(anim)
+    }
+    g.appendChild(line)
+    // 脉冲点
+    if (state !== 'offline') {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg','circle')
+      circle.setAttribute('r','3'); circle.setAttribute('fill', c); circle.setAttribute('fill-opacity','0.7')
+      const animX = document.createElementNS('http://www.w3.org/2000/svg','animate')
+      animX.setAttribute('attributeName','cx')
+      animX.setAttribute('from', gwCx); animX.setAttribute('to', px)
+      animX.setAttribute('dur', state === 'working' ? '1s' : '2.5s'); animX.setAttribute('repeatCount','indefinite')
+      const animY = document.createElementNS('http://www.w3.org/2000/svg','animate')
+      animY.setAttribute('attributeName','cy')
+      animY.setAttribute('from', gwCy); animY.setAttribute('to', py)
+      animY.setAttribute('dur', state === 'working' ? '1s' : '2.5s'); animY.setAttribute('repeatCount','indefinite')
+      circle.appendChild(animX); circle.appendChild(animY)
+      g.appendChild(circle)
+    }
+  })
+}
+
+watch(agents, () => {
+  nextTick(() => setTimeout(drawConnections, 100))
+}, { deep: false })
+
+watch(gatewayHealth, () => {
+  nextTick(() => setTimeout(drawConnections, 50))
+})
+
 onMounted(() => {
+
   fetchAgents()
+  // 每 30 秒轮询一次实时状态（低 I/O，仅读文件）
+  statusPollTimer = setInterval(() => {
+    fetchRealtimeStatuses()
+  }, 30000)
+  // Gateway 健康检查：每 15 秒一次
+  fetchGatewayHealth()
+  gatewayPollTimer = setInterval(fetchGatewayHealth, 15000)
+  // 初始连线（等 DOM 稳定）
+  setTimeout(drawConnections, 600)
+})
+
+
+onUnmounted(() => {
+  if (statusPollTimer) clearInterval(statusPollTimer)
+  if (gatewayPollTimer) clearInterval(gatewayPollTimer)
 })
 </script>
 
@@ -1508,11 +2092,10 @@ onMounted(() => {
 .search-input::placeholder { color: var(--jm-accent-3); }
 .toolbar-actions { display: flex; gap: 8px; }
 
-/* ===== List Layout (Grid + Side Panel) ===== */
+/* ===== List Layout (full width) ===== */
 .list-layout {
-  display: grid;
-  grid-template-columns: 1fr 260px;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   position: relative;
@@ -1682,7 +2265,108 @@ onMounted(() => {
 }
 
 /* Status badge */
-.card-status-row { margin-bottom: 10px; }
+.card-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.card-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+/* 精致元信息胶囊 */
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 6px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+}
+.meta-chip.last-active {
+  background: rgba(var(--jm-accent-1-rgb), 0.45);
+  color: var(--jm-accent-5);
+  border: 1px solid rgba(var(--jm-accent-1-rgb), 0.6);
+}
+.meta-chip.last-active:hover {
+  background: rgba(var(--jm-accent-1-rgb), 0.7);
+  color: var(--jm-accent-7);
+}
+.meta-chip.token {
+  background: rgba(32, 128, 240, 0.08);
+  color: var(--jm-primary-1);
+  border: 1px solid rgba(var(--jm-primary-1-rgb), 0.2);
+}
+.meta-chip.token:hover {
+  background: rgba(32, 128, 240, 0.15);
+  box-shadow: 0 0 8px rgba(var(--jm-primary-1-rgb), 0.15);
+}
+
+/* ===== Card Info Bar (compact) ===== */
+.card-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--jm-glass-border);
+  min-height: 22px;
+}
+.infobar-sep {
+  color: var(--jm-accent-3);
+  font-size: 11px;
+  flex-shrink: 0;
+  user-select: none;
+}
+.infobar-item {
+  font-size: 11px;
+  color: var(--jm-accent-4);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.infobar-item.last-active {
+  color: var(--jm-accent-5);
+}
+.infobar-item.avg-resp {
+  color: #f0a020;
+  font-family: 'SF Mono','Fira Code', monospace;
+  font-weight: 500;
+}
+.infobar-spacer { flex: 1; }
+/* Sparkline */
+.spark-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  cursor: default;
+}
+.spark-bar {
+  display: inline-block;
+  width: 4px;
+  border-radius: 2px 2px 0 0;
+  background: var(--jm-primary-1);
+  opacity: 0.55;
+  transition: height 0.4s ease, opacity 0.2s;
+}
+.spark-bar:last-of-type { opacity: 1; }
+.spark-wrap:hover .spark-bar { opacity: 0.85; }
+.spark-val {
+  font-size: 10px;
+  font-family: 'SF Mono','Fira Code', monospace;
+  color: var(--jm-primary-1);
+  margin-left: 4px;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -1698,6 +2382,18 @@ onMounted(() => {
   border-radius: 50%;
   background: var(--jm-accent-3);
 }
+/* working = 正在响应：绿色，快速脉冲 */
+.status-badge.working {
+  background: rgba(24,160,88,0.12);
+  color: #18a058;
+}
+.status-badge.working .status-dot-mini { background: #18a058; box-shadow: 0 0 5px #18a058; animation: pulse-glow 0.9s ease-in-out infinite; }
+/* online = 在线：蓝色 */
+.status-badge.online {
+  background: rgba(32,128,240,0.1);
+  color: #2080f0;
+}
+.status-badge.online .status-dot-mini { background: #2080f0; box-shadow: 0 0 4px #2080f0; }
 .status-badge.idle {
   background: rgba(74,222,128,0.1);
   color: #4ade80;
@@ -2371,6 +3067,15 @@ onMounted(() => {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+.agents-md-hint {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(6,182,212,0.3);
+  border-radius: 0 6px 6px 0;
+  background: rgba(6,182,212,0.04);
+  font-size: 12px; line-height: 1.6;
+  color: var(--jm-text-2, rgba(255,255,255,0.45));
+}
 
 /* ===== Preview Overlay ===== */
 .preview-overlay {
@@ -2529,10 +3234,12 @@ onMounted(() => {
 .editor-wrapper { display: flex; flex: 1; }
 .editor-textarea {
   width: 100%;
-  min-height: 420px;
+  min-height: 300px;
+  max-height: calc(100vh - 320px);
   padding: 16px;
   border: none; outline: none;
   resize: vertical;
+  overflow-y: auto;
   background: transparent;
   color: var(--jm-accent-7);
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
@@ -2681,4 +3388,826 @@ onMounted(() => {
 .stat-dot.thinking { background: #60a5fa; box-shadow: 0 0 4px #60a5fa; }
 .stat-dot.acting { background: #fb923c; box-shadow: 0 0 4px #fb923c; }
 .stat-dot.error { background: #f87171; box-shadow: 0 0 4px #f87171; }
+/* ===== 赛博控制室 COMMAND CENTER ===== */
+
+.cc-wrap {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  background: #04080f; border-radius: 14px;
+  border: 1px solid rgba(6,182,212,0.18); overflow: hidden; position: relative;
+}
+
+/* HUD 栏 */
+.cc-hud {
+  display: flex; align-items: center; padding: 9px 18px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(6,182,212,0.08);
+  background: rgba(6,182,212,0.03);
+  font-family: 'SF Mono','Fira Code',monospace;
+}
+.cc-hud-title { font-size: 11px; font-weight: 800; letter-spacing: 3.5px; color: rgba(6,182,212,0.7); }
+.cc-hud-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.hud-stat-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  font-family: 'SF Mono','Fira Code',monospace;
+  border: 1px solid currentColor;
+}
+.hud-stat-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.hud-stat-badge.working { color: #18a058; background: rgba(24,160,88,0.07); }
+.hud-stat-badge.online  { color: #2080f0; background: rgba(32,128,240,0.07); }
+.hud-stat-badge.idle    { color: #f0a020; background: rgba(240,160,32,0.07); }
+.hud-stat-badge.temp    { color: #10b981; background: rgba(16,185,129,0.07); }
+.cc-hud-right { display: flex; align-items: center; gap: 10px; }
+.cc-gw-chip {
+  display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; border: 1px solid currentColor;
+}
+.cc-gw-chip.healthy  { color: #18a058; background: rgba(24,160,88,0.06); }
+.cc-gw-chip.degraded { color: #f0a020; background: rgba(240,160,32,0.06); animation: cc-blink 1.5s ease-in-out infinite; }
+.cc-gw-chip.down     { color: #f56c6c; background: rgba(245,108,108,0.06); animation: cc-blink 0.7s ease-in-out infinite; }
+@keyframes cc-blink { 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
+.cc-gw-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.cc-gw-ping, .cc-gw-err { font-size: 9px; opacity: 0.7; }
+.cc-token-chip { display: flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; color: #06b6d4; }
+
+/* 画布 */
+.cc-canvas {
+  flex: 1; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 50%, #0a1628 0%, #04080f 70%);
+}
+.cc-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(6,182,212,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6,182,212,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at 50% 50%, black 30%, transparent 80%);
+}
+.cc-horizon {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 30%;
+  background: linear-gradient(to top, rgba(6,182,212,0.03), transparent);
+  pointer-events: none;
+}
+.cc-scan {
+  position: absolute; left: 0; right: 0; height: 2px; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(6,182,212,0.25) 30%, rgba(6,182,212,0.6) 50%, rgba(6,182,212,0.25) 70%, transparent);
+  animation: cc-scan 8s linear infinite;
+}
+@keyframes cc-scan { 0%{ top:-2px; opacity:0; } 10%{ opacity:1; } 90%{ opacity:1; } 100%{ top:100%; opacity:0; } }
+
+/* SVG 连线层 */
+.cc-lines-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;
+}
+
+/* ====== Gateway 核心 ====== */
+.cc-gateway {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  display: flex; flex-direction: column; align-items: center; z-index: 5;
+  cursor: default;
+}
+.cc-gw-ring {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  border-radius: 50%; border: 1px solid currentColor;
+  animation: gw-ring-out 3s ease-out infinite;
+}
+.cc-gateway.healthy { color: #18a058; }
+.cc-gateway.degraded { color: #f0a020; }
+.cc-gateway.down { color: #f56c6c; }
+.cc-gw-ring.r1 { width: 64px;  height: 64px;  opacity: 0.5; animation-delay: 0s; }
+.cc-gw-ring.r2 { width: 96px;  height: 96px;  opacity: 0.3; animation-delay: 0.8s; }
+.cc-gw-ring.r3 { width: 130px; height: 130px; opacity: 0.15; animation-delay: 1.6s; }
+@keyframes gw-ring-out {
+  0%  { transform: translate(-50%,-50%) scale(0.7); opacity: 0.6; }
+  100%{ transform: translate(-50%,-50%) scale(1.4); opacity: 0; }
+}
+.cc-gw-core {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(6,30,50,0.9); border: 2px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 20px color-mix(in srgb, currentColor 30%, transparent), inset 0 0 12px rgba(6,182,212,0.05);
+  position: relative; z-index: 2;
+}
+.cc-gateway.healthy .cc-gw-core { animation: gw-pulse 2s ease-in-out infinite; }
+.cc-gateway.degraded .cc-gw-core { animation: gw-pulse 1.2s ease-in-out infinite; }
+.cc-gateway.down .cc-gw-core { animation: gw-alarm 0.6s ease-in-out infinite; box-shadow: 0 0 20px rgba(245,108,108,0.5); }
+@keyframes gw-pulse { 0%,100%{ box-shadow: 0 0 16px color-mix(in srgb,currentColor 30%,transparent); } 50%{ box-shadow: 0 0 28px color-mix(in srgb,currentColor 55%,transparent); } }
+@keyframes gw-alarm { 0%,100%{ box-shadow:0 0 16px rgba(245,108,108,0.4);} 50%{ box-shadow:0 0 36px rgba(245,108,108,0.8);} }
+.cc-gw-lbl {
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; white-space: nowrap;
+  font-family: 'SF Mono','Fira Code',monospace;
+}
+.cc-gw-lbl > span:first-child { font-size: 9px; letter-spacing: 3px; color: rgba(255,255,255,0.4); }
+.cc-gw-stxt { font-size: 8px; letter-spacing: 2px; color: currentColor; }
+
+/* ====== Agent 舱位 ====== */
+.cc-pod {
+  min-width: 160px; max-width: 190px;
+  background: rgba(8,18,35,0.85); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+  cursor: pointer; padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+  position: relative; overflow: hidden;
+}
+.cc-pod:hover { box-shadow: 0 4px 28px rgba(6,182,212,0.2); border-color: rgba(6,182,212,0.4); }
+.cc-pod.is-main { min-width: 185px; border-color: rgba(167,139,250,0.25); box-shadow: 0 2px 20px rgba(139,92,246,0.15); }
+.cc-pod.working { border-color: rgba(24,160,88,0.35); box-shadow: 0 2px 20px rgba(24,160,88,0.15); }
+.cc-pod.offline { opacity: 0.55; }
+
+/* 光束 (hover) */
+.pod-beam {
+  position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%);
+  width: 2px; height: 36px; pointer-events: none; opacity: 0; transition: opacity 0.2s;
+  background: linear-gradient(to bottom, rgba(6,182,212,0.7), transparent);
+  filter: blur(1px);
+}
+.pod-glow-ring {
+  position: absolute; inset: -1px; border-radius: 11px; pointer-events: none;
+  border: 1px solid transparent; transition: border-color 0.2s;
+}
+.cc-pod:hover .pod-glow-ring, .cc-pod.working .pod-glow-ring { border-color: rgba(6,182,212,0.3); }
+.cc-pod.working .pod-glow-ring { border-color: rgba(24,160,88,0.4); }
+
+/* Pod 头部 */
+.pod-head { display: flex; align-items: center; gap: 7px; }
+.pod-avatar {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.6);
+}
+.pod-avatar.working { border-color: rgba(24,160,88,0.5); color: #18a058; animation: pod-work 1.5s ease-in-out infinite; }
+.pod-avatar.offline { opacity: 0.4; }
+@keyframes pod-work { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.06);} }
+.pod-titles { flex: 1; min-width: 0; }
+.pod-name { display: block; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pod-tag { font-size: 8px; letter-spacing: 1.5px; font-family: 'SF Mono','Fira Code',monospace; }
+.pod-tag.main { color: #a78bfa; }
+.pod-tag.spec { color: #06b6d4; opacity: 0.6; }
+.pod-state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #333; }
+.pod-state-dot.working { background: #18a058; box-shadow: 0 0 5px #18a058; animation: pulse-glow 0.9s ease-in-out infinite; }
+.pod-state-dot.online  { background: #2080f0; box-shadow: 0 0 4px #2080f0; }
+.pod-state-dot.idle    { background: #f0a020; }
+
+/* Pod 屏幕 */
+.pod-screen {
+  border-radius: 5px; background: #010c0a; border: 1px solid rgba(6,182,212,0.2);
+  padding: 6px 7px; position: relative; overflow: hidden; min-height: 58px;
+}
+.pod-scanline {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(6,182,212,0.03) 3px, rgba(6,182,212,0.03) 4px);
+}
+.pod-scr-body { display: flex; flex-direction: column; gap: 2px; z-index: 1; position: relative; }
+.pscr-row { font-family: 'SF Mono','Fira Code',monospace; font-size: 9px; color: rgba(6,182,212,0.65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pscr-row.state { font-weight: 700; }
+.pscr-row.state.working { color: #18a058; }
+.pscr-row.state.online  { color: #2080f0; }
+.pscr-row.state.idle    { color: #f0a020; }
+.pscr-row.state.offline { color: #444; }
+.pscr-spark { display: flex; align-items: flex-end; gap: 2px; height: 20px; margin-top: 3px; }
+.pscr-bar { flex: 1; min-height: 2px; min-width: 3px; border-radius: 1px; background: linear-gradient(to top, #06b6d4, rgba(6,182,212,0.2)); transition: height 0.5s; }
+.pod-cur { position: absolute; bottom: 5px; left: 6px; font-size: 10px; color: #06b6d4; animation: cur-blink 1s step-end infinite; }
+@keyframes cur-blink { 0%,100%{ opacity:1;} 50%{ opacity:0;} }
+
+/* Pod 底部 */
+.pod-foot { display: flex; align-items: center; justify-content: space-between; }
+.pod-id { font-family: 'SF Mono','Fira Code',monospace; font-size: 8px; color: rgba(255,255,255,0.2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod-model { font-size: 8px; color: rgba(255,255,255,0.18); font-family: 'SF Mono','Fira Code',monospace; }
+
+/* 空状态 */
+.cc-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.2); font-size: 13px; pointer-events: none;
+}
+
+/* 底部状态栏 */
+.cc-statusbar {
+  display: flex; align-items: center; gap: 14px; padding: 7px 18px; flex-shrink: 0;
+  border-top: 1px solid rgba(6,182,212,0.08);
+  background: rgba(6,182,212,0.02);
+  font-family: 'SF Mono','Fira Code',monospace;
+}
+.csb-g { display: flex; align-items: center; gap: 4px; }
+.csb-g b { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.8); }
+.csb-g span { font-size: 10px; color: rgba(255,255,255,0.3); }
+.csb-d { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.csb-d.pulse { animation: pulse-glow 0.9s ease-in-out infinite; }
+.csb-sep { width: 1px; height: 14px; background: rgba(255,255,255,0.1); }
+
+/* 通用动画 */
+@keyframes pulse-glow { 0%,100%{ opacity:1; box-shadow:0 0 4px currentColor; } 50%{ opacity:0.6; box-shadow:0 0 10px currentColor; } }
+
+/* 展示屏兼容旧引用 */
+.mini-chart { display: flex; align-items: flex-end; gap: 2px; z-index:1; min-height:12px; }
+.mini-bar { flex:1; min-height:2px; border-radius:1px; background:linear-gradient(to top,#06b6d4,rgba(6,182,212,0.2)); transition:height .5s; min-width:3px; }
+.osb-item { display:flex; align-items:center; gap:4px; }
+.osb-dot { display:inline-block; width:6px; height:6px; border-radius:50%; }
+.osb-val { font-size:13px; font-weight:700; color:rgba(255,255,255,0.8); }
+.osb-label { font-size:10px; color:rgba(255,255,255,0.3); }
+.osb-sep { width:1px; height:14px; background:rgba(255,255,255,0.1); margin:0 4px; }
+
+/* ===== Working Pod 数据流扫描动画增强 ===== */
+.cc-pod.working {
+  border-color: rgba(24,160,88,0.5) !important;
+  box-shadow: 0 0 24px rgba(24,160,88,0.22), 0 2px 16px rgba(0,0,0,0.4) !important;
+  animation: pod-working-pulse 2s ease-in-out infinite;
+}
+@keyframes pod-working-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(24,160,88,0.18), 0 2px 12px rgba(0,0,0,0.4); }
+  50%       { box-shadow: 0 0 32px rgba(24,160,88,0.40), 0 4px 20px rgba(0,0,0,0.4); }
+}
+/* 数据流扫描线覆盖层 */
+.cc-pod.working::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(24,160,88,0.0) 30%,
+    rgba(24,160,88,0.12) 50%,
+    rgba(24,160,88,0.0) 70%,
+    transparent 100%
+  );
+  animation: pod-sweep 2.2s ease-in-out infinite;
+  z-index: 10;
+}
+@keyframes pod-sweep {
+  0%   { transform: translateY(-110%); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateY(110%); opacity: 0; }
+}
+
+/* ===== 浅色主题覆盖 ===== */
+:root[data-theme='light'] .cc-wrap {
+  background: #f0f4ff;
+  border-color: rgba(32, 80, 180, 0.18);
+}
+:root[data-theme='light'] .cc-hud {
+  background: rgba(32,80,180,0.04);
+  border-bottom-color: rgba(32,80,180,0.1);
+}
+:root[data-theme='light'] .cc-hud-title { color: rgba(32,80,180,0.75); }
+:root[data-theme='light'] .cc-hud-sub   { color: rgba(20,40,100,0.35); }
+:root[data-theme='light'] .cc-canvas {
+  background: radial-gradient(ellipse at 50% 50%, #ddeeff 0%, #f0f4ff 70%);
+}
+:root[data-theme='light'] .cc-grid {
+  background-image:
+    linear-gradient(rgba(32,80,200,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32,80,200,0.06) 1px, transparent 1px);
+}
+:root[data-theme='light'] .cc-scan {
+  background: linear-gradient(90deg, transparent, rgba(32,80,200,0.18) 30%, rgba(32,80,200,0.45) 50%, rgba(32,80,200,0.18) 70%, transparent);
+}
+:root[data-theme='light'] .cc-horizon {
+  background: linear-gradient(to top, rgba(32,80,200,0.04), transparent);
+}
+/* Pod 在浅色下 */
+:root[data-theme='light'] .cc-pod {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(32,80,180,0.15);
+  box-shadow: 0 2px 12px rgba(32,80,180,0.08);
+}
+:root[data-theme='light'] .cc-pod:hover {
+  border-color: rgba(32,80,200,0.4);
+  box-shadow: 0 4px 24px rgba(32,80,200,0.15);
+}
+:root[data-theme='light'] .cc-pod.working {
+  background: rgba(245,255,250,0.9) !important;
+  border-color: rgba(24,160,88,0.45) !important;
+}
+:root[data-theme='light'] .pod-name  { color: rgba(10,20,60,0.9); }
+:root[data-theme='light'] .pod-avatar { background: rgba(32,80,200,0.06); border-color: rgba(32,80,200,0.2); color: rgba(10,20,60,0.6); }
+:root[data-theme='light'] .pod-screen { background: #e8f0fe; border-color: rgba(32,80,200,0.15); }
+:root[data-theme='light'] .pod-id, :root[data-theme='light'] .pod-model { color: rgba(20,40,100,0.5); }
+/* Gateway 在浅色下 */
+:root[data-theme='light'] .cc-gw-core { background: rgba(230,240,255,0.9); }
+:root[data-theme='light'] .cc-gw-lbl > span:first-child { color: rgba(20,40,100,0.5); }
+/* 状态栏在浅色下 */
+:root[data-theme='light'] .cc-statusbar { border-top-color: rgba(32,80,180,0.1); background: rgba(32,80,180,0.03); }
+:root[data-theme='light'] .csb-g b    { color: rgba(10,20,60,0.8); }
+:root[data-theme='light'] .csb-g span { color: rgba(20,40,100,0.4); }
+:root[data-theme='light'] .csb-sep   { background: rgba(20,40,100,0.12); }
+
+/* ============================================================
+   2D OFFICE SCENE
+   ============================================================ */
+
+/* 画布容器 - CSS Grid 三行布局 */
+.office-canvas {
+  flex: 1; height: 0; position: relative;
+  display: grid;
+  grid-template-rows: 52px 1fr auto;
+  grid-template-columns: 1fr;
+  padding: 10px 14px 10px;
+  gap: 8px;
+  overflow-y: auto; overflow-x: hidden;
+}
+.office-canvas::-webkit-scrollbar { width: 4px; }
+.office-canvas::-webkit-scrollbar-track { background: transparent; }
+.office-canvas::-webkit-scrollbar-thumb { background: rgba(6,182,212,0.25); border-radius: 4px; }
+.office-canvas::-webkit-scrollbar-thumb:hover { background: rgba(6,182,212,0.45); }
+
+/* 地板瓦片背景 */
+.office-floor {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-color: #0d1b2a;
+  background-image:
+    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(6,182,212,0.04) 40px),
+    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(6,182,212,0.04) 40px);
+  background-size: 40px 40px;
+}
+
+/* 走廊 */
+.office-corridor {
+  position: relative; z-index: 2;
+  background: rgba(6,182,212,0.06);
+  border: 1px solid rgba(6,182,212,0.14);
+  border-radius: 8px;
+  overflow: visible;
+  display: flex; align-items: center;
+}
+
+/* 保安小人 */
+.office-guard {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  color: #18a058;
+  animation: guard-patrol 12s linear infinite;
+  transform-origin: center bottom;
+  top: 50%; transform: translateY(-50%);
+  z-index: 3;
+}
+.office-guard.gateway-down { color: #f56c6c; animation: guard-patrol 6s linear infinite; }
+@keyframes guard-patrol {
+  0%   { left: 5%;  transform: translateY(-50%) scaleX(1);  }
+  48%  { left: 90%; transform: translateY(-50%) scaleX(1);  }
+  50%  { left: 90%; transform: translateY(-50%) scaleX(-1); }
+  98%  { left: 5%;  transform: translateY(-50%) scaleX(-1); }
+  100% { left: 5%;  transform: translateY(-50%) scaleX(1);  }
+}
+.guard-svg { display: block; }
+/* 腿部摇动 */
+.guard-leg-l { animation: guard-leg-l 0.5s ease-in-out infinite alternate; transform-origin: 6px 18px; }
+.guard-leg-r { animation: guard-leg-r 0.5s ease-in-out infinite alternate; transform-origin: 12px 18px; }
+@keyframes guard-leg-l { 0%{ transform: rotate(-12deg); } 100%{ transform: rotate(12deg); } }
+@keyframes guard-leg-r { 0%{ transform: rotate(12deg); } 100%{ transform: rotate(-12deg); } }
+
+/* label 独立跟随（不翻转） */
+.guard-label-float {
+  position: absolute;
+  top: calc(50% + 18px);
+  font-size: 8px; font-family: 'SF Mono','Fira Code',monospace;
+  letter-spacing: 1px; color: #18a058; opacity: 0.75;
+  white-space: nowrap; pointer-events: none;
+  animation: guard-label-patrol 12s linear infinite;
+  z-index: 3;
+}
+.guard-label-float.gateway-down { color: #f56c6c; animation: guard-label-patrol 6s linear infinite; }
+/* label 只跟随左右位置，不翻转 */
+@keyframes guard-label-patrol {
+  0%   { left: 3%;  }
+  48%  { left: 88%; }
+  50%  { left: 88%; }
+  98%  { left: 3%;  }
+  100% { left: 3%;  }
+}
+
+/* 工位区 */
+.office-desks {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; gap: 24px;
+  align-items: center;
+  overflow: visible;
+  padding: 8px 0;
+}
+
+/* 拓扑布局层 */
+.topology-main {
+  display: flex; justify-content: center; gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.topology-specs {
+  display: flex; justify-content: center; gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(6,182,212,0.04);
+  border: 1px dashed rgba(6,182,212,0.12);
+}
+.topology-temps {
+  width: 100%;
+  background: rgba(16,185,129,0.04);
+  border: 1px dashed rgba(16,185,129,0.15);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.temps-header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  color: rgba(16,185,129,0.7);
+  margin-bottom: 6px;
+  font-family: 'SF Mono','Fira Code',monospace;
+}
+.temps-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #10b981; box-shadow: 0 0 6px #10b981;
+  animation: state-pulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.temps-count {
+  background: rgba(16,185,129,0.15); border-radius: 10px;
+  padding: 0 6px; font-size: 9px;
+}
+.temps-cards {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+}
+
+/* 主控底座光环 */
+.main-base-ring {
+  position: absolute; bottom: -8px; left: 50%;
+  transform: translateX(-50%);
+  width: 80%; height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(167,139,250,0.35) 0%, transparent 70%);
+  animation: base-ring-pulse 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.main-base-ring.working {
+  background: radial-gradient(ellipse at center, rgba(24,160,88,0.5) 0%, transparent 70%);
+  animation-duration: 1.4s;
+}
+.main-base-ring.offline {
+  opacity: 0.2;
+}
+@keyframes base-ring-pulse { 0%,100%{ opacity:0.6; transform:translateX(-50%) scaleY(1); } 50%{ opacity:1; transform:translateX(-50%) scaleY(1.3); } }
+
+/* 实时活动条 */
+.desk-activity {
+  display: flex; align-items: center; gap: 4px;
+  height: 14px;
+  width: 100%;
+  justify-content: center;
+  margin: 2px 0 -2px;
+}
+.activity-dot {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  background: #18a058; box-shadow: 0 0 4px #18a058;
+  animation: state-pulse 0.9s ease-in-out infinite;
+}
+.desk-activity.working .activity-dot { background: #18a058; box-shadow: 0 0 4px #18a058; }
+.desk-activity.online .activity-dot  { background: #2080f0; box-shadow: 0 0 4px #2080f0; }
+.desk-activity.idle .activity-dot    { background: #f0a020; }
+.activity-txt {
+  font-size: 9px; font-family: 'SF Mono','Fira Code',monospace;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 80px;
+}
+.desk-activity.working .activity-txt { color: rgba(24,160,88,0.9); }
+.desk-activity.online  .activity-txt { color: rgba(32,128,240,0.8); }
+/* 打字机光标动画 */
+.typewriter::after { content: '|'; animation: blink-cur 0.8s step-end infinite; }
+@keyframes blink-cur { 0%,100%{ opacity:1; } 50%{ opacity:0; } }
+
+/* org 连线 SVG 层 */
+.org-lines-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 1; overflow: visible;
+}
+.org-line {
+  animation: org-dash 2s linear infinite;
+}
+@keyframes org-dash { to { stroke-dashoffset: -18; } }
+
+/* 单个工位 */
+.office-desk {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer;
+  padding: 12px 14px 10px;
+  border-radius: 10px;
+  background: rgba(8,18,35,0.7);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  min-width: 130px;
+}
+.office-desk:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 28px rgba(6,182,212,0.18);
+  border-color: rgba(6,182,212,0.3);
+}
+.office-desk.working {
+  border-color: rgba(24,160,88,0.45);
+  box-shadow: 0 0 20px rgba(24,160,88,0.18);
+  animation: desk-working-glow 2s ease-in-out infinite;
+}
+.office-desk.is-main {
+  border: 1.5px solid rgba(167,139,250,0.55);
+  box-shadow: 0 4px 24px rgba(139,92,246,0.25), 0 0 0 3px rgba(167,139,250,0.08);
+  padding: 10px 12px 8px;
+  min-width: 140px;
+  isolation: isolate; /* 自身内部 stacking，不覆盖下方卡片 */
+}
+.office-desk.is-main:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(139,92,246,0.35), 0 0 0 3px rgba(167,139,250,0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+@keyframes desk-working-glow {
+  0%,100%{ box-shadow: 0 0 14px rgba(24,160,88,0.18); }
+  50%    { box-shadow: 0 0 28px rgba(24,160,88,0.38); }
+}
+
+/* 桌面 */
+.desk-surface {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px; padding: 8px 10px 6px;
+  width: 100%; box-sizing: border-box;
+}
+
+/* 显示器 */
+.desk-monitor {
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+}
+.monitor-screen {
+  width: 72px; height: 48px; border-radius: 4px 4px 0 0;
+  background: #010c0a; border: 2px solid rgba(6,182,212,0.25);
+  display: flex; align-items: flex-end; padding: 4px 5px;
+  position: relative; overflow: hidden;
+}
+.monitor-screen.working { border-color: rgba(24,160,88,0.5); background: #010c08; }
+.monitor-screen.working::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 30%, rgba(24,160,88,0.08) 50%, transparent 70%);
+  animation: screen-sweep 1.8s ease-in-out infinite;
+}
+@keyframes screen-sweep {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.monitor-screen.idle { border-color: rgba(240,160,32,0.3); }
+.monitor-screen.online { border-color: rgba(32,128,240,0.4); }
+.monitor-screen.offline { border-color: rgba(255,255,255,0.07); background: #08080a; }
+.monitor-spark {
+  display: flex; align-items: flex-end; gap: 2px; height: 100%; z-index: 1;
+}
+.mspark-bar {
+  width: 8px; border-radius: 1px 1px 0 0;
+  background: linear-gradient(to top, #06b6d4, rgba(6,182,212,0.3));
+  min-height: 2px;
+}
+.monitor-screen.working .mspark-bar { background: linear-gradient(to top, #18a058, rgba(24,160,88,0.3)); }
+.monitor-idle-txt {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 10px;
+  color: rgba(6,182,212,0.4);
+  animation: cur-blink 1.1s step-end infinite;
+  z-index: 1;
+}
+.monitor-stand {
+  width: 8px; height: 6px;
+  background: rgba(255,255,255,0.15);
+  clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+}
+
+/* 键盘 */
+.desk-keyboard {
+  width: 64px; height: 12px; border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  position: relative; overflow: hidden;
+}
+.desk-keyboard::before {
+  content: ''; position: absolute; inset: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255,255,255,0.12) 0px, rgba(255,255,255,0.12) 3px,
+    transparent 3px, transparent 6px
+  );
+  border-radius: 1px;
+}
+/* 敲键盘动画：轻微抖动 */
+.desk-keyboard.typing {
+  animation: keyboard-type 0.15s ease-in-out infinite alternate;
+}
+@keyframes keyboard-type {
+  0%  { transform: translateY(0px); }
+  100%{ transform: translateY(1px); }
+}
+
+/* 椅子 + 小人区 */
+.desk-chair-area {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+
+/* 椅背 */
+.desk-chair {
+  width: 26px; height: 7px; border-radius: 3px 3px 0 0;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* 像素小人 */
+.pixel-person {
+  display: flex; flex-direction: column; align-items: center;
+}
+.person-svg { display: block; }
+
+/* 颜色按状态 */
+.pixel-person.working { color: #18a058; animation: person-work 0.4s ease-in-out infinite alternate; }
+.pixel-person.online  { color: #2080f0; }
+.pixel-person.idle    { color: #f0a020; }
+.pixel-person.offline { color: rgba(255,255,255,0.2); }
+.pixel-person.thinking{ color: #60a5fa; animation: person-think 1.5s ease-in-out infinite; }
+.pixel-person.acting  { color: #fb923c; animation: person-work 0.25s ease-in-out infinite alternate; }
+
+@keyframes person-work {
+  0%  { transform: rotate(-2deg) scaleY(0.97); }
+  100%{ transform: rotate(2deg)  scaleY(1.01); }
+}
+@keyframes person-think {
+  0%,100%{ transform: rotate(-3deg); }
+  50%    { transform: rotate(3deg); }
+}
+
+/* working 时手臂抬起 (CSS attribute trick: target rect.arm-l inside) */
+.pixel-person.working .arm-l { transform: rotate(-35deg) translateY(-3px); transform-origin: 2px 9px; }
+.pixel-person.working .arm-r { transform: rotate(35deg)  translateY(-3px); transform-origin: 19px 9px; }
+.pixel-person.acting .arm-l  { transform: rotate(-20deg); transform-origin: 2px 9px; }
+.pixel-person.acting .arm-r  { transform: rotate(20deg);  transform-origin: 19px 9px; }
+
+/* 工位名牌 */
+.desk-nameplate {
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 5px;
+  width: 100%;
+  padding: 0 2px;
+}
+.desk-agent-name {
+  font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.88);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 80px;
+}
+/* 小圆点状态指示 */
+.desk-state {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.2);
+}
+.desk-state.working { background: #18a058; box-shadow: 0 0 4px #18a058; animation: state-pulse 1.4s ease-in-out infinite; }
+.desk-state.online  { background: #2080f0; box-shadow: 0 0 4px #2080f0; }
+.desk-state.idle    { background: #f0a020; }
+.desk-state.offline { background: rgba(255,255,255,0.15); }
+.desk-state.thinking{ background: #60a5fa; box-shadow: 0 0 4px #60a5fa; animation: state-pulse 0.8s ease-in-out infinite; }
+.desk-state.acting  { background: #fb923c; box-shadow: 0 0 4px #fb923c; animation: state-pulse 0.6s ease-in-out infinite; }
+@keyframes state-pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+
+/* 工位悬停信息卡 */
+.desk-hover-card {
+  position: absolute;
+  bottom: calc(100% + 4px); left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  background: rgba(10,20,40,0.92);
+  border: 1px solid rgba(6,182,212,0.28);
+  border-radius: 7px;
+  padding: 7px 10px;
+  white-space: nowrap;
+  z-index: 30;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  min-width: 120px;
+}
+.office-desk:hover .desk-hover-card {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.dhc-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 3px; }
+.dhc-row:last-child { margin-bottom: 0; }
+.dhc-label { font-size: 9px; color: rgba(6,182,212,0.7); font-family: 'SF Mono','Fira Code',monospace; letter-spacing: 0.5px; }
+.dhc-val   { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.9); }
+
+
+/* ===== Gateway 机房 ===== */
+.office-server-room {
+  position: relative; z-index: 2;
+  border-radius: 8px;
+  background: rgba(6,182,212,0.04);
+  border: 1px solid rgba(6,182,212,0.14);
+  padding: 10px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.office-server-room.down {
+  border-color: rgba(245,108,108,0.2);
+  background: rgba(245,108,108,0.03);
+}
+.server-room-label {
+  font-size: 9px; letter-spacing: 2.5px; font-weight: 700;
+  font-family: 'SF Mono','Fira Code',monospace;
+  color: rgba(6,182,212,0.55);
+}
+.office-server-room.down .server-room-label { color: rgba(245,108,108,0.55); }
+
+.server-racks {
+  display: flex; align-items: stretch; gap: 8px;
+}
+
+/* 普通机架 */
+.server-rack {
+  flex: 1;
+  display: flex; flex-direction: column; gap: 4px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 4px; padding: 6px 8px;
+}
+.rack-unit {
+  height: 6px; border-radius: 2px;
+  background: rgba(24,160,88,0.5);
+  transition: background 0.3s;
+}
+.rack-unit.degraded { background: rgba(240,160,32,0.5); }
+.rack-unit.down     { background: rgba(245,108,108,0.35); }
+.rack-unit.blink    { animation: rack-blink 0.8s ease-in-out infinite; }
+@keyframes rack-blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+/* 网关核心机架 */
+.server-rack.gw-rack {
+  flex: 1.5;
+  align-items: center; justify-content: center;
+  border-color: rgba(6,182,212,0.2);
+  gap: 5px; padding: 8px;
+}
+.gw-rack-label {
+  font-size: 8px; letter-spacing: 2px;
+  font-family: 'SF Mono','Fira Code',monospace;
+  color: rgba(6,182,212,0.7);
+}
+.gw-rack-light {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #18a058;
+  box-shadow: 0 0 10px #18a058, 0 0 20px rgba(24,160,88,0.4);
+  animation: gw-light-pulse 2s ease-in-out infinite;
+}
+.gw-rack-light.degraded {
+  background: #f0a020;
+  box-shadow: 0 0 10px #f0a020;
+  animation: gw-light-pulse 1s ease-in-out infinite;
+}
+.gw-rack-light.down {
+  background: #f56c6c;
+  box-shadow: 0 0 12px #f56c6c;
+  animation: gw-alarm 0.5s ease-in-out infinite;
+}
+@keyframes gw-light-pulse {
+  0%,100%{ box-shadow: 0 0 8px currentColor,  0 0 16px rgba(24,160,88,0.3); }
+  50%    { box-shadow: 0 0 18px currentColor, 0 0 32px rgba(24,160,88,0.6); }
+}
+@keyframes gw-alarm {
+  0%,100%{ opacity:1; }  50%{ opacity:0.35; }
+}
+.gw-rack-sub {
+  font-size: 8px; color: rgba(255,255,255,0.4);
+  font-family: 'SF Mono','Fira Code',monospace;
+  letter-spacing: 1px;
+}
+
+/* ===== 浅色主题 2D 办公室覆盖 ===== */
+:root[data-theme='light'] .office-floor {
+  background-color: #f0f4ff;
+  background-image:
+    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(32,80,200,0.06) 40px),
+    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(32,80,200,0.06) 40px);
+}
+:root[data-theme='light'] .office-corridor {
+  background: rgba(32,80,200,0.04);
+  border-color: rgba(32,80,200,0.12);
+}
+:root[data-theme='light'] .office-desk {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(32,80,180,0.14);
+  box-shadow: 0 2px 10px rgba(32,80,180,0.08);
+}
+:root[data-theme='light'] .office-desk:hover {
+  border-color: rgba(32,80,200,0.35);
+  box-shadow: 0 6px 22px rgba(32,80,200,0.15);
+}
+:root[data-theme='light'] .desk-surface { background: rgba(32,80,200,0.04); }
+:root[data-theme='light'] .monitor-screen { background: #e8f0fe; border-color: rgba(32,80,200,0.2); }
+:root[data-theme='light'] .desk-keyboard { background: rgba(32,80,200,0.06); border-color: rgba(32,80,200,0.12); }
+:root[data-theme='light'] .desk-chair { background: rgba(32,80,200,0.12); border-color: rgba(32,80,200,0.15); }
+:root[data-theme='light'] .desk-agent-name { color: rgba(10,20,60,0.9); }
+:root[data-theme='light'] .monitor-idle-txt { color: rgba(32,80,200,0.35); }
+:root[data-theme='light'] .office-server-room { background: rgba(32,80,200,0.04); border-color: rgba(32,80,200,0.14); }
+:root[data-theme='light'] .server-room-label { color: rgba(32,80,200,0.6); }
+:root[data-theme='light'] .server-rack { background: rgba(32,80,200,0.05); border-color: rgba(32,80,200,0.1); }
+:root[data-theme='light'] .server-rack.gw-rack { border-color: rgba(32,80,200,0.2); }
+:root[data-theme='light'] .gw-rack-label { color: rgba(32,80,200,0.7); }
 </style>

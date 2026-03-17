@@ -113,6 +113,16 @@ export function getRecentLogs(count = 10, mode = '') {
 }
 
 /**
+ * 获取 OpenClaw 配置目录路径（模块级缓存，应用生命周期内只请求一次）
+ */
+let _configDirCache = null
+export async function getOpenClawConfigDirPath() {
+    if (_configDirCache) return _configDirCache
+    _configDirCache = await gm.request('getOpenClawConfigDirPath')
+    return _configDirCache
+}
+
+/**
  * 大模型提供商配置
  */
 export const MODEL_PROVIDERS = [
@@ -172,8 +182,16 @@ export const MODEL_PROVIDERS = [
         baseUrl: 'https://generativelanguage.googleapis.com',
         tokenUrl: 'https://aistudio.google.com/apikey',
         models: [
-            { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (超大文件读取专家)' },
-            { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (谷歌最快模型)' },
+            { id: 'google/gemini-3-pro-preview', name: 'Gemini 3 Pro Preview (最强推理)' },
+            { id: 'google/gemini-3-flash-preview', name: 'Gemini 3 Flash Preview (新一代闪电)' },
+            { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro (复杂推理)' },
+            { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (性价比之王)' },
+            { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (轻量快速)' },
+            { id: 'google/gemini-2.0-flash', name: 'Gemini 2.0 Flash (高频调用)' },
+            { id: 'google/gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (极速轻量)' },
+            { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro (2M上下文)' },
+            { id: 'google/gemini-1.5-flash', name: 'Gemini 1.5 Flash (速度与效率)' },
+            { id: 'google/gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B (超低延迟)' },
         ],
     },
     {

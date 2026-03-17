@@ -77,6 +77,24 @@
               <path d="M13 5l7 7-7 7M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
+
+          <!-- 引流卡片 -->
+          <div class="promo-card">
+            <div class="promo-left">
+              <div class="promo-brand">
+                <span class="promo-lobster">🦞</span>
+                <div>
+                  <div class="promo-title">一键部署 OpenClaw</div>
+                  <div class="promo-sub">GMSSH × OpenClaw</div>
+                </div>
+              </div>
+              <p class="promo-desc">一键部署你的7×24小时专属AI助理，预置50+热门Skills，支持一键接入飞书等即时通讯工具。全程可视化，无需命令行。</p>
+            </div>
+            <div class="promo-right">
+              <img src="/qrcode.png" alt="扫码加入交流群" class="promo-qr" />
+              <span class="promo-qr-label">扫码加入交流群</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -95,7 +113,7 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, provide } from 'vue'
+import { ref, inject, onMounted, provide, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EnvironmentCheck from '@/components/EnvironmentCheck.vue'
 import DeploySetupInline from '@/components/DeploySetupInline.vue'
@@ -103,8 +121,18 @@ import DashboardPanel from '@/components/DashboardPanel.vue'
 
 const deployed = inject('deployed')
 const route = useRoute()
-const selectedMode = ref('docker')
+const DEPLOY_MODE_KEY = 'deploy_selected_mode'
+const savedMode = sessionStorage.getItem(DEPLOY_MODE_KEY)
+const selectedMode = ref(
+  // 优先从 sessionStorage 恢复，避免跳过 mode 选择步骤时默认回 docker
+  (savedMode === 'local' || savedMode === 'docker') ? savedMode : 'docker'
+)
 const step = ref(route.query.step === 'setup' ? 'setup' : 'mode')
+
+// 每次 selectedMode 变化时持久化
+watch(selectedMode, (val) => {
+  sessionStorage.setItem(DEPLOY_MODE_KEY, val)
+})
 
 provide('deployMode', selectedMode)
 </script>
@@ -252,4 +280,42 @@ provide('deployMode', selectedMode)
 
 .fade-in-up { animation: fadeInUp 0.35s ease-out both; }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== 引流卡片 ===== */
+.promo-card {
+  margin-top: 16px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(var(--jm-primary-1-rgb), 0.06);
+  border: 1px solid rgba(var(--jm-primary-1-rgb), 0.14);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.promo-left { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.promo-brand { display: flex; align-items: center; gap: 8px; }
+.promo-lobster { font-size: 26px; line-height: 1; flex-shrink: 0; }
+.promo-title { font-size: 13px; font-weight: 700; color: var(--jm-accent-7); line-height: 1.3; }
+.promo-sub { font-size: 10px; color: var(--jm-accent-4); margin-top: 1px; }
+
+.promo-desc {
+  font-size: 10.5px; color: var(--jm-accent-5);
+  line-height: 1.65; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.promo-right {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  flex-shrink: 0;
+}
+.promo-qr {
+  width: 70px; height: 70px; border-radius: 8px;
+  border: 1px solid var(--jm-glass-border);
+  object-fit: cover;
+}
+.promo-qr-label {
+  font-size: 9px; color: var(--jm-accent-4);
+  white-space: nowrap;
+}
 </style>

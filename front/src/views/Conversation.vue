@@ -11,9 +11,11 @@
           <template v-if="wsEnabled">
             <span class="capsule-sep"></span>
             <span class="bind-toggle has-tip" :class="{ 'is-private': wsBindMode === 'private' }" @click="switchBindMode" :data-tip="bindTip">
-              <svg v-if="wsBindMode === 'public'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-              <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01"/><path d="M2 12h20"/></svg>
-              <span class="bind-label">{{ wsBindMode === 'public' ? '公网' : '内网' }}</span>
+              <!-- lucide:globe for public -->
+              <svg v-if="wsBindMode === 'public'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20a14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
+              <!-- tabler:shield-lock for private -->
+              <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3a12 12 0 0 0 8.5 3A12 12 0 0 1 12 21A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3"/><path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0-2 0m1 1v2.5"/></svg>
+              <span class="bind-label">{{ wsBindMode === 'public' ? t('console.webUIPublic') : t('console.webUIPrivate') }}</span>
             </span>
             <span class="capsule-sep"></span>
             <span class="ws-port-pill">
@@ -27,14 +29,22 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <button class="tb-icon-btn has-tip" @click="loadHistory" data-tip="刷新" :disabled="loadingHistory">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-        </button>
-        <span class="tb-divider"></span>
         <button class="tb-icon-btn has-tip" :class="{ active: showDebug }" @click="toggleDebug" data-tip="显示工具和思考过程">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7z"/><line x1="9" y1="21" x2="15" y2="21"/><line x1="10" y1="24" x2="14" y2="24"/><line x1="12" y1="17" x2="12" y2="12"/><line x1="9.5" y1="14" x2="12" y2="12"/><line x1="14.5" y1="14" x2="12" y2="12"/></svg>
         </button>
+        <span class="tb-divider"></span>
+        <button class="tb-icon-btn has-tip" @click="loadHistory" data-tip="刷新" :disabled="loadingHistory">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        </button>
       </div>
+    </div>
+    <!-- 首次访问提示 -->
+    <div v-if="showHint" class="chat-hint">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span>如遇无法连接，请确认服务器是否有公网，点击上方「公网访问 / 内网访问」按钮切换或更改端口尝试。</span>
+      <button class="hint-close" @click="dismissHint">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
     <!-- Messages area -->
     <div class="messages-area" ref="messagesRef">
@@ -127,7 +137,7 @@
             ref="inputRef"
             v-model="inputText"
             :disabled="!wsReady || sending"
-            :placeholder="wsReady ? 'Message (Enter to send, Shift+Enter for new line)' : '等待连接...'"
+            :placeholder="wsReady ? 'Message (Enter to send, Shift+Enter for new line)' : t('console.waitingConnection')"
             rows="1"
             @focus="inputFocused = true"
             @blur="inputFocused = false"
@@ -136,7 +146,7 @@
             @compositionend="isComposing = false"
             @input="autoResize"
           ></textarea>
-          <button v-if="agentTyping" class="stop-btn has-tip" @click="abortReply" data-tip="停止">
+          <button v-if="agentTyping" class="stop-btn has-tip" @click="abortReply" :data-tip="t('console.stopReply')">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
           </button>
           <button v-else class="send-btn" :disabled="!canSend" @click="sendMessage">
@@ -148,23 +158,26 @@
   </div>
 </template>
 
-<!-- Module-level singleton — runs ONCE, persists across route changes -->
-<script>
-let ws = null
-let currentRunId = null
-let pendingReqs = {}
-let wsRetries = 0
-let retryTimer = null
-</script>
+<!-- Removed module-level script to prevent white screen crashes and memory leaks -->
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { NSwitch, NInputNumber } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { getClawWsInfo, getWsProxyStatus, toggleWsProxy } from '@/api/conversation'
 import gm from '@/utils/gmssh'
 
 marked.setOptions({ breaks: true, gfm: true })
+
+const { t } = useI18n()
+
+// ====== WebSocket internal state ======
+let ws = null
+let currentRunId = null
+let pendingReqs = {}
+let wsRetries = 0
+let retryTimer = null
 
 const messages = ref([])
 const inputText = ref('')
@@ -183,8 +196,8 @@ const inputRef = ref(null)
 
 const connLabel = computed(() => ({ disconnected: '未连接', connecting: '连接中...', connected: '已连接' }[connState.value]))
 const bindTip = computed(() => {
-  if (wsBindMode.value === 'public') return '公网 ' + (window.$gm?.publicIp || 'localhost')
-  return '内网 ' + (window.$gm?.privateIp || 'localhost')
+  if (wsBindMode.value === 'public') return t('console.webUIPublic') + ' ' + (window.$gm?.publicIp || 'localhost')
+  return t('console.webUIPrivate') + ' ' + (window.$gm?.privateIp || 'localhost')
 })
 const currentAssistantMsg = computed(() => {
   const l = messages.value[messages.value.length - 1]
@@ -198,6 +211,9 @@ let lastSavedPort = 37300
 const wsBindMode = ref(localStorage.getItem('ws_bind_mode') || 'public')
 const wsRunning = ref(false)
 const wsToggling = ref(false)
+const isHttps = (window.$gm?.baseURL || '').startsWith('https')
+const showHint = ref(!localStorage.getItem('chat_hint_dismissed'))
+function dismissHint() { showHint.value = false; localStorage.setItem('chat_hint_dismissed', '1') }
 
 async function loadWsStatus() {
   try {
@@ -218,7 +234,7 @@ async function handleWsToggle(val) {
       connState.value = 'disconnected'
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
     }
-    const res = await toggleWsProxy({ enabled: val, port: wsPort.value })
+    const res = await toggleWsProxy({ enabled: val, port: wsPort.value, useSSL: isHttps })
     if (res?.success) {
       wsEnabled.value = val
       wsRunning.value = val
@@ -246,7 +262,7 @@ async function handlePortChange() {
   if (wsPort.value === lastSavedPort) return
   wsToggling.value = true
   try {
-    const res = await toggleWsProxy({ enabled: true, port: wsPort.value })
+    const res = await toggleWsProxy({ enabled: true, port: wsPort.value, useSSL: isHttps })
     if (res?.success) {
       wsRunning.value = true
       if (res.port) wsPort.value = res.port
@@ -277,7 +293,7 @@ function switchBindMode() {
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
   // 后端代理绑定 0.0.0.0，无需重启，前端用新 IP 重连即可
   if (wsEnabled.value) {
-    gm.success(`已切换到${newMode === 'private' ? '内网' : '公网'}模式`)
+    gm.success(newMode === 'private' ? t('console.webUIPrivate') : t('console.webUIPublic'))
     connectWs()
   }
 }
@@ -308,7 +324,9 @@ async function connectWs() {
       ? (window.$gm?.privateIp || 'localhost')
       : gm.getPublicIp()
     const b64 = btoa(info.token).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-    ws = new WebSocket(`ws://${host}:${info.port}/ws/chat?token=${b64}`)
+    const isHttps = (window.$gm?.baseURL || '').startsWith('https')
+    const wsProto = isHttps ? 'wss' : 'ws'
+    ws = new WebSocket(`${wsProto}://${host}:${info.port}/ws/chat?token=${b64}`)
     ws.onopen = () => {}
     ws.onmessage = ev => { let d; try { d = JSON.parse(ev.data) } catch { return }; handleMsg(d) }
     ws.onerror = () => { connState.value = 'disconnected' }
@@ -491,7 +509,7 @@ function autoResize() { const el = inputRef.value; if (!el) return; el.style.hei
 function resetTA() { nextTick(() => { const el = inputRef.value; if (el) el.style.height = 'auto' }) }
 function scrollBottom() { const el = messagesRef.value; if (el) el.scrollTop = el.scrollHeight }
 
-// Component lifecycle — don't destroy WS on unmount
+// Component lifecycle — properly manage WS to avoid leaks
 onMounted(async () => {
   await loadWsStatus()
   if (!wsEnabled.value) return   // WS 未启用，不连接
@@ -499,7 +517,7 @@ onMounted(async () => {
   // 如果配置已启用但代理未运行（比如后端重启过），先启动代理
   if (!wsRunning.value) {
     try {
-      const res = await toggleWsProxy({ enabled: true, port: wsPort.value })
+      const res = await toggleWsProxy({ enabled: true, port: wsPort.value, useSSL: isHttps })
       if (res?.success) {
         wsRunning.value = true
         if (res.port) wsPort.value = res.port
@@ -513,22 +531,47 @@ onMounted(async () => {
     }
   }
 
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    connState.value = 'connected'
-    ws.onmessage = ev => { let d; try { d = JSON.parse(ev.data) } catch { return }; handleMsg(d) }
-    loadHistory()
-  } else {
-    connectWs()
-  }
+  connectWs()
 })
+
 onUnmounted(() => {
-  // DON'T close the WS — keep connection alive across route changes
-  // Only clean up retry timer if component unmounts
+  // 彻底清理 WS 防止切到其他页面时由于消息到来而触发响应式更新导致崩溃
+  if (ws) {
+    ws.onclose = null
+    ws.onerror = null
+    ws.onmessage = null
+    ws.close()
+    ws = null
+  }
+  if (retryTimer) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
 })
 </script>
 
 <style scoped>
 .conv-page { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ===== First-visit hint ===== */
+.chat-hint {
+  flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; margin: 0;
+  background: rgba(59, 130, 246, 0.08);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
+  font-size: 12px; color: var(--jm-accent-5); line-height: 1.5;
+  animation: hintSlideIn 0.3s ease-out;
+}
+.chat-hint svg { flex-shrink: 0; color: #3b82f6; }
+.chat-hint span { flex: 1; }
+.hint-close {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 6px;
+  border: none; background: transparent; color: var(--jm-accent-4);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.hint-close:hover { background: rgba(var(--jm-accent-2-rgb), 0.3); color: var(--jm-accent-6); }
+@keyframes hintSlideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* ===== Top bar — Floating Glass ===== */
 .conv-topbar {
@@ -579,17 +622,31 @@ onUnmounted(() => {
 .ws-port-pill :deep(.n-input__input-el) { text-align: center; }
 .ws-off-tip { font-size: 11px; color: var(--jm-accent-4); }
 
-/* Bind toggle (公网/内网) */
+/* Bind toggle (公网/内网) —— 增强视觉效果 */
 .bind-toggle {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: 12px;
-  background: rgba(var(--jm-accent-1-rgb), 0.2);
-  border: 1px solid var(--jm-glass-border);
-  cursor: pointer; transition: all 0.25s;
-  font-size: 11px; font-weight: 500; color: var(--jm-accent-5);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  cursor: pointer; transition: all 0.3s ease;
+  font-size: 11px; font-weight: 600; color: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.1);
 }
-.bind-toggle:hover { background: var(--jm-glass-bg-hover); color: var(--jm-accent-6); }
-.bind-toggle.is-private { color: var(--jm-primary-2); border-color: rgba(var(--jm-primary-1-rgb), 0.2); background: rgba(var(--jm-primary-1-rgb), 0.06); }
+.bind-toggle:hover {
+  background: rgba(34, 197, 94, 0.18);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
+  transform: scale(1.03);
+}
+.bind-toggle.is-private {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.1);
+}
+.bind-toggle.is-private:hover {
+  background: rgba(245, 158, 11, 0.18);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
 .bind-label { white-space: nowrap; }
 .topbar-left { display: flex; align-items: center; }
 .status-capsule {

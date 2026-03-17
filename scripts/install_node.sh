@@ -74,6 +74,9 @@ yes | pnpm config set registry https://registry.npmmirror.com
 echo "[6/6] 建立二进制软链接..."
 ln -sf $(which node) /usr/bin/node
 ln -sf $(which pnpm) /usr/bin/pnpm
+# 修复 /usr/bin/npm：apt 装的旧 npm 指向 .js 脚本，与新版 Node 不兼容
+# 会导致 openclaw plugins install 报 "Cannot find module 'semver'"
+ln -sf $(which npm) /usr/bin/npm
 
 echo "------------------------------------------------"
 echo "✅ 安装完成！当前环境: Node $(node -v)"

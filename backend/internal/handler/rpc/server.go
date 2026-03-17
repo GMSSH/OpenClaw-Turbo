@@ -50,6 +50,8 @@ func (s *Server) RegisterHandles(ds interface {
 	ds.RegisterHandle("getWsProxyStatus", s.GetWsProxyStatus)
 	ds.RegisterHandle("toggleWsProxy", s.ToggleWsProxy)
 	ds.RegisterHandle("getRecentLogs", s.GetRecentLogs)
+	ds.RegisterHandle("getOpenClawConfigDirPath", s.GetOpenClawConfigDirPath)
+
 
 	// Agent管理接口
 	ds.RegisterHandle("getAgentFiles", s.GetAgentFiles)
@@ -83,6 +85,7 @@ func (s *Server) RegisterHandles(ds interface {
 	ds.RegisterHandle("listBuiltinSkills", s.ListBuiltinSkills)
 	ds.RegisterHandle("installBuiltinSkill", s.InstallBuiltinSkill)
 	ds.RegisterHandle("uninstallBuiltinSkill", s.UninstallBuiltinSkill)
+	ds.RegisterHandle("toggleBuiltinSkill", s.ToggleBuiltinSkill)
 	ds.RegisterHandle("getActiveSkillCount", s.GetActiveSkillCount)
 	ds.RegisterHandle("isClawHubInstalled", s.IsClawHubInstalled)
 	ds.RegisterHandle("installClawHub", s.InstallClawHub)
@@ -90,6 +93,10 @@ func (s *Server) RegisterHandles(ds interface {
 	ds.RegisterHandle("saveEnvVars", s.SaveEnvVars)
 	ds.RegisterHandle("getModelsConfig", s.GetModelsConfig)
 	ds.RegisterHandle("saveModelsConfig", s.SaveModelsConfig)
+	ds.RegisterHandle("getSkillsDir", s.GetSkillsDir)
+	ds.RegisterHandle("listRecommendedSkills", s.ListRecommendedSkills)
+	ds.RegisterHandle("installRecommendedSkill", s.InstallRecommendedSkill)
+	ds.RegisterHandle("uninstallRecommendedSkill", s.UninstallRecommendedSkill)
 
 	// 定时任务接口
 	ds.RegisterHandle("cronStatus", s.CronStatus)
@@ -101,6 +108,14 @@ func (s *Server) RegisterHandles(ds interface {
 	ds.RegisterHandle("disableCronJob", s.DisableCronJob)
 	ds.RegisterHandle("runCronJob", s.RunCronJob)
 	ds.RegisterHandle("getCronRuns", s.GetCronRuns)
+
+	// Agent 实时状态接口
+	ds.RegisterHandle("getAgentStatuses", s.GetAgentStatuses)
+	ds.RegisterHandle("getAgentTokenStats", s.GetAgentTokenStats)
+	ds.RegisterHandle("getGatewayHealth", s.GetGatewayHealth)
+	ds.RegisterHandle("testPlatformConn", s.TestPlatformConn)
+	ds.RegisterHandle("getAgentSessions", s.GetAgentSessions)
+	ds.RegisterHandle("getAgentActivity", s.GetAgentActivity)
 }
 
 // Start 启动RPC服务器

@@ -5,7 +5,7 @@ export function getChannels() {
 }
 
 export function saveChannel(params) {
-    return gm.request('saveChannel', params)
+    return gm.request('saveChannel', params, { timeout: 180000 })
 }
 
 export function deleteChannel(params) {

@@ -25,7 +25,7 @@
         </nav>
 
         <div class="sidebar-bottom">
-          <button class="theme-toggle" @click="toggleTheme" :title="isDark ? '切换亮色' : '切换暗色'">
+          <button class="theme-toggle" @click="toggleTheme" :title="isDark ? t('nav.switchToLight') : t('nav.switchToDark')">
             <div class="toggle-track" :class="{ light: !isDark }">
               <div class="toggle-thumb">
                 <svg v-if="isDark" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -46,10 +46,8 @@
 
       <!-- 右侧内容区 -->
       <main class="main-content">
-        <router-view v-slot="{ Component }">
-          <transition name="page-slide" mode="out-in">
-            <component :is="Component" />
-          </transition>
+        <router-view v-slot="{ Component, route }">
+            <component :is="Component" :key="route.path" />
         </router-view>
       </main>
     </div>
@@ -57,11 +55,14 @@
 </template>
 
 <script setup>
-import { ref, provide, onMounted } from 'vue'
+import { ref, computed, provide, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { NConfigProvider } from 'naive-ui'
 import { useTheme } from '@/composables/useTheme'
 import { getClawStatus, isClawInstalled } from '@/api/deploy'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
@@ -73,50 +74,50 @@ const activeMenu = ref('console')
 
 provide('isDark', isDark)
 
-const menuItems = [
+const menuItems = computed(() => [
   {
     key: 'console',
-    label: '控制台',
+    label: t('nav.console'),
     route: '/console',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1m0 12h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1m10-4h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1m0-8h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1"/></svg>',
   },
   {
     key: 'conversation',
-    label: '对话',
+    label: t('nav.conversation'),
     route: '/conversation',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   },
   {
     key: 'chat',
-    label: '频道',
+    label: t('nav.chat'),
     route: '/chat',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2a5.5 5.5 0 010-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a5.5 5.5 0 010 8.4M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>',
   },
   {
     key: 'agents',
-    label: '赛博员工',
+    label: t('nav.agents'),
     route: '/agents',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M6 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2zm6-4v2m-3 8v9m6-9v9M5 16l4-2m6 0l4 2M9 18h6M10 8v.01M14 8v.01"/></svg>',
   },
   {
     key: 'abilities',
-    label: '技能',
+    label: t('nav.abilities'),
     route: '/abilities',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M13 3v7h6l-8 11v-7H5z"/></svg>',
   },
   {
     key: 'models',
-    label: '模型',
+    label: t('nav.models'),
     route: '/models',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>',
   },
   {
     key: 'cron',
-    label: '定时任务',
+    label: t('nav.cron'),
     route: '/cron',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0m9 0h3.5M12 7v5"/></svg>',
   },
-]
+])
 
 function onMenuClick(item) {
   if (!deployed.value && item.key !== 'console') return
@@ -133,7 +134,7 @@ provide('setDeployed', setDeployed)
 
 function syncMenu() {
   const path = route.path
-  const found = menuItems.find(m => path.startsWith(m.route))
+  const found = menuItems.value.find(m => path.startsWith(m.route))
   if (found) activeMenu.value = found.key
   else activeMenu.value = 'console'
 }

@@ -80,3 +80,10 @@ export function getAgentDetail(params) {
 export function getConfiguredModels() {
     return gm.request('getConfiguredModels')
 }
+
+/**
+ * 获取 Agent 实时活跃状态 + 子 Agent（临时工）
+ */
+export function getAgentActivity() {
+    return gm.request('getAgentActivity')
+}

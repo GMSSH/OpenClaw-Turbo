@@ -24,6 +24,7 @@ type DeployReq struct {
 	Provider      string `json:"provider"`
 	Model         string `json:"model"`
 	ApiKey        string `json:"apiKey"`
+	ApiMode       string `json:"apiMode"`       // openai | anthropic | anthropic-messages | 空=按供应商默认
 	CustomBaseUrl string `json:"customBaseUrl"`
 	DeployMode    string `json:"deployMode"` // docker | local
 }
@@ -175,16 +176,17 @@ type ApplyTemplateReq struct {
 
 // AgentInfo 单个 Agent 的完整信息
 type AgentInfo struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Role        string `json:"role"`        // main | specialist
-	Description string `json:"description"`
-	Status      string `json:"status"`      // idle | thinking | acting | error
-	Avatar      string `json:"avatar"`
-	Model       string `json:"model"`
-	ParentID    string `json:"parentId"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Role         string   `json:"role"`        // main | specialist
+	Description  string   `json:"description"`
+	Status       string   `json:"status"`      // idle | thinking | acting | error
+	Avatar       string   `json:"avatar"`
+	Model        string   `json:"model"`
+	ParentID     string   `json:"parentId"`
+	AllowAgents  []string `json:"allowAgents,omitempty"` // 主控允许委派的子 Agent ID 列表
+	CreatedAt    string   `json:"createdAt"`
+	UpdatedAt    string   `json:"updatedAt"`
 }
 
 // ListAgentsResp Agent 列表响应
@@ -204,13 +206,14 @@ type CreateAgentReq struct {
 
 // UpdateAgentReq 更新 Agent 请求
 type UpdateAgentReq struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Role        string `json:"role"`
-	Description string `json:"description"`
-	Avatar      string `json:"avatar"`
-	Model       string `json:"model"`
-	ParentID    string `json:"parentId"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Role         string   `json:"role"`
+	Description  string   `json:"description"`
+	Avatar       string   `json:"avatar"`
+	Model        string   `json:"model"`
+	ParentID     string   `json:"parentId"`
+	AllowAgents  []string `json:"allowAgents"` // 允许委派的子 Agent ID 列表（仅主控有效）
 }
 
 // DeleteAgentReq 删除 Agent 请求

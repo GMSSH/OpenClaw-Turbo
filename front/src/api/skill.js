@@ -36,6 +36,22 @@ export function uninstallBuiltinSkill(params) {
     return gm.request('uninstallBuiltinSkill', params)
 }
 
+export function toggleBuiltinSkill(params) {
+    return gm.request('toggleBuiltinSkill', params)
+}
+
+export function listRecommendedSkills() {
+    return gm.request('listRecommendedSkills')
+}
+
+export function installRecommendedSkill(params) {
+    return gm.request('installRecommendedSkill', params)
+}
+
+export function uninstallRecommendedSkill(params) {
+    return gm.request('uninstallRecommendedSkill', params)
+}
+
 export function getActiveSkillCount(params) {
     return gm.request('getActiveSkillCount', params)
 }
@@ -54,4 +70,8 @@ export function listEnvVars() {
 
 export function saveEnvVars(params) {
     return gm.request('saveEnvVars', params)
+}
+
+export function getSkillsDir() {
+    return gm.request('getSkillsDir')
 }

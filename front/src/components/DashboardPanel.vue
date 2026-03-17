@@ -4,10 +4,8 @@
     <div class="top-bar">
       <div class="status-pill" :class="!statusLoaded ? 'st-loading' : (running ? 'st-ok' : 'st-off')">
         <span class="st-dot"><span class="st-ring" v-if="running"></span></span>
-        <span class="st-text">{{ !statusLoaded ? '获取中' : (running ? '运行中' : '已停止') }}</span>
-        <span class="st-name font-mono">{{ statusData.containerName }}</span>
-        <span class="st-sep">·</span>
-        <span class="st-meta font-mono">{{ statusData.image }}</span>
+        <span class="st-text">{{ !statusLoaded ? t('console.statusFetching') : (running ? t('console.statusRunning') : t('console.statusStopped')) }}</span>
+        <span class="st-name font-mono">OpenClaw</span>
         <span class="st-sep" v-if="statusData.uptime && statusData.uptime !== '-'">·</span>
         <span class="st-meta" v-if="statusData.uptime && statusData.uptime !== '-'">{{ statusData.uptime }}</span>
       </div>
@@ -22,38 +20,42 @@
           </n-dropdown>
           <button class="cap-btn" @click="viewLogs">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 8l4 4-4 4M14 16h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            日志
+           {{ t('console.btnLogs') }}
+          </button>
+          <button class="cap-btn" @click="openWorkDir">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            {{ t('console.btnWorkDir') }}
           </button>
           <button class="cap-btn" @click="openConfig">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            配置
+            {{ t('console.btnConfig') }}
           </button>
           <n-tooltip trigger="hover"><template #trigger>
             <button class="cap-btn cap-icon" @click="refreshStatus">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
             </button>
-          </template>刷新数据</n-tooltip>
+          </template>{{ t('console.btnRefresh') }}</n-tooltip>
         </div>
         <!-- 服务控制胶囊 -->
         <div class="capsule-bar capsule-danger">
           <n-tooltip trigger="hover"><template #trigger>
             <button class="cap-btn ctrl-warn" @click="handleRestart" :disabled="actionLoading">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
-              重启
+              {{ t('console.btnRestart') }}
             </button>
-          </template>重启服务（将中断连接）</n-tooltip>
+          </template>{{ t('console.tooltipRestart') }}</n-tooltip>
           <n-tooltip trigger="hover"><template #trigger>
             <button class="cap-btn" @click="handleStop" :disabled="actionLoading">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              停止
+              {{ t('console.btnStop') }}
             </button>
-          </template>停止服务</n-tooltip>
+          </template>{{ t('console.tooltipStop') }}</n-tooltip>
           <n-tooltip trigger="hover"><template #trigger>
             <button class="cap-btn ctrl-danger-btn" @click="handleUninstall" :disabled="actionLoading">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              卸载
+              {{ t('console.btnUninstall') }}
             </button>
-          </template>卸载（不可撤销）</n-tooltip>
+          </template>{{ t('console.tooltipUninstall') }}</n-tooltip>
         </div>
       </div>
     </div>
@@ -69,11 +71,11 @@
             <path d="M2 17l10 5 10-5" stroke="var(--jm-primary-2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M2 12l10 5 10-5" stroke="var(--jm-primary-1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
           </svg>
-          <span>已配置模型</span>
+          <span>{{ t('console.configuredModels') }}</span>
         </div>
         <div class="models-body">
-          <div v-if="!modelsLoaded" class="models-placeholder">加载中...</div>
-          <div v-else-if="Object.keys(configuredProviders).length === 0" class="models-placeholder">暂未配置模型，请前往「模型管理」添加</div>
+          <div v-if="!modelsLoaded" class="models-placeholder">{{ t('console.modelsLoading') }}</div>
+          <div v-else-if="Object.keys(configuredProviders).length === 0" class="models-placeholder">{{ t('console.modelsEmpty') }}</div>
           <template v-else>
             <div v-for="(prov, pid) in configuredProviders" :key="pid" class="provider-row">
               <span class="prov-badge">{{ pid }}</span>
@@ -111,7 +113,7 @@
             <circle cx="6" cy="6" r="1.5" fill="var(--jm-primary-1)"/>
             <circle cx="6" cy="18" r="1.5" fill="var(--jm-primary-2)"/>
           </svg>
-          <span>网关</span>
+          <span>{{ t('console.gatewayTitle') }}</span>
         </div>
         <div class="gw-list">
           <div class="gw-row" v-for="g in gatewayItems" :key="g.label">
@@ -148,14 +150,14 @@
             <rect x="3" y="3" width="18" height="18" rx="2" stroke="var(--jm-primary-1)" stroke-width="1.5"/>
             <path d="M8 8l4 4-4 4M14 16h4" stroke="var(--jm-primary-2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>近期日志</span>
+          <span>{{ t('console.recentLogs') }}</span>
           <button class="log-refresh" @click="loadLogs" :disabled="logsLoading" title="刷新日志">
             <svg :class="{ spinning: logsLoading }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
           </button>
         </div>
         <div class="log-timeline" ref="logBody">
-          <div v-if="!logsLoaded" class="log-placeholder">加载中...</div>
-          <div v-else-if="parsedLogs.length === 0" class="log-placeholder">暂无日志</div>
+          <div v-if="!logsLoaded" class="log-placeholder">{{ t('console.logsLoading') }}</div>
+          <div v-else-if="parsedLogs.length === 0" class="log-placeholder">{{ t('console.logsEmpty') }}</div>
           <div v-else class="log-entry" v-for="(entry, idx) in parsedLogs" :key="idx">
             <div class="log-rail">
               <span class="log-dot" :class="entry.status"></span>
@@ -177,7 +179,8 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, inject, h, nextTick } from 'vue'
-import { getClawStatus, getClawConfig, stopClaw, restartClaw, uninstallClaw, getRecentLogs } from '@/api/deploy'
+import { useI18n } from 'vue-i18n'
+import { getClawStatus, getClawConfig, stopClaw, restartClaw, uninstallClaw, getRecentLogs, getOpenClawConfigDirPath } from '@/api/deploy'
 import { getModelsConfig } from '@/api/model'
 import { getActiveSkillCount } from '@/api/skill'
 import { listCronJobs } from '@/api/cron'
@@ -186,6 +189,7 @@ import { NTooltip, NButton, NDropdown } from 'naive-ui'
 import gm from '@/utils/gmssh'
 
 const router = useRouter()
+const { t } = useI18n()
 const setDeployed = inject('setDeployed', () => {})
 
 const statusData = ref({
@@ -207,19 +211,19 @@ const jobCount = ref(0)
 const jobLoaded = ref(false)
 
 const metricsData = computed(() => [
-  { key: 'skills', display: !statusLoaded.value ? '—' : !skillLoaded.value ? '...' : String(skillCount.value), label: '能力', colorClass: 'clr-purple', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { key: 'crons', display: !statusLoaded.value ? '—' : !jobLoaded.value ? '...' : String(jobCount.value), label: '定时任务', colorClass: 'clr-cyan', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+  { key: 'skills', display: !statusLoaded.value ? '—' : !skillLoaded.value ? '...' : String(skillCount.value), label: t('console.metricSkills'), colorClass: 'clr-purple', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+  { key: 'crons', display: !statusLoaded.value ? '—' : !jobLoaded.value ? '...' : String(jobCount.value), label: t('console.metricCron'), colorClass: 'clr-cyan', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
 ])
 
 const gatewayItems = computed(() => {
   const web = statusData.value.webPort || '—'
   const bridge = statusData.value.bridgePort || '—'
   return [
-    { label: '认证', value: configData.value.authMode || '-' },
-    { label: '绑定', value: configData.value.gatewayBind || '-' },
-    { label: '模式', value: configData.value.gatewayMode || '-' },
-    { label: '状态', value: statusData.value.status || 'unknown' },
-    { label: '端口', value: `${web}(web) / ${bridge}(bridge)` },
+    { label: t('console.gwAuth'), value: configData.value.authMode || '-' },
+    { label: t('console.gwBind'), value: configData.value.gatewayBind || '-' },
+    { label: t('console.gwMode'), value: configData.value.gatewayMode || '-' },
+    { label: t('console.gwStatus'), value: statusData.value.status || 'unknown' },
+    { label: t('console.gwPort'), value: `${web}(web) / ${bridge}(bridge)` },
   ]
 })
 
@@ -227,14 +231,14 @@ const webUIOptions = [
   {
     label: () => h('div', { style: 'display:flex;align-items:center;gap:8px' }, [
       h('svg', { viewBox: '0 0 16 16', width: 14, height: 14, innerHTML: '<circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M1 8h14M8 1c2 2 3 4.5 3 7s-1 5-3 7M8 1c-2 2-3 4.5-3 7s1 5 3 7" stroke="currentColor" stroke-width="1.2" fill="none"/>' }),
-      '公网访问'
+      t('console.webUIPublic')
     ]),
     key: 'public'
   },
   {
     label: () => h('div', { style: 'display:flex;align-items:center;gap:8px' }, [
       h('svg', { viewBox: '0 0 16 16', width: 14, height: 14, innerHTML: '<rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M5 4V3a3 3 0 016 0v1" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/><circle cx="8" cy="8.5" r="1.2" fill="currentColor"/>' }),
-      '内网访问'
+      t('console.webUIPrivate')
     ]),
     key: 'private'
   },
@@ -249,7 +253,7 @@ function buildWebUrl(ip) {
 function onWebUISelect(key) {
   const ip = key === 'private' ? getPrivateIp() : gm.getPublicIp()
   const url = buildWebUrl(ip)
-  if (url) window.open(url, '_blank'); else gm.warning('端口信息不可用')
+  if (url) window.open(url, '_blank'); else gm.warning(t('console.webUIUnavailable'))
 }
 
 async function fetchAll() {
@@ -271,28 +275,38 @@ function viewLogs() {
   if (isLocal) { if (gmApi?.openShell) gmApi.openShell({ arr: ['journalctl -u openclaw -f --no-pager\n'] }); else gm.info('请在终端执行: journalctl -u openclaw -f') }
   else { if (gmApi?.openShell) gmApi.openShell({ arr: ['docker logs -f gmssh-openclaw\n'] }); else gm.info('请在终端执行: docker logs -f gmssh-openclaw') }
 }
-function refreshStatus() { fetchAll(); gm.success('已刷新') }
+function refreshStatus() { fetchAll(); gm.success(t('console.refreshSuccess')) }
+async function openWorkDir() {
+  try {
+    const res = await getOpenClawConfigDirPath()
+    const dir = res?.path
+    if (!dir) { gm.warning('获取目录失败'); return }
+    const gmApi = gm.getGmApi()
+    if (gmApi?.openFolder) gmApi.openFolder(dir)
+    else gm.info(t('console.btnWorkDir') + ': ' + dir)
+  } catch (e) { gm.error('获取目录失败: ' + (e.message || '')) }
+}
 function openConfig() {
   const gmApi = gm.getGmApi(); const configFile = configData.value.configPath || '/opt/gmclaw/conf/openclaw.json'
-  if (gmApi?.openCodeEditor) gmApi.openCodeEditor(configFile); else gm.info(`配置文件: ${configFile}`)
+  if (gmApi?.openCodeEditor) gmApi.openCodeEditor(configFile); else gm.info(`${t('console.configFile')}: ${configFile}`)
 }
 
 const actionLoading = ref(false)
 async function doStop() {
   actionLoading.value = true
-  try { await stopClaw(); gm.success('已停止'); await fetchAll() } catch (e) { gm.error('停止失败: ' + e.message) } finally { actionLoading.value = false }
+  try { await stopClaw(); gm.success(t('console.stopSuccess')); await fetchAll() } catch (e) { gm.error(t('console.stopFailed') + ': ' + e.message) } finally { actionLoading.value = false }
 }
-function handleStop() { window.$gm?.dialog?.warning({ title: '停止 OpenClaw', content: '确定要停止 OpenClaw 服务吗？', positiveText: '确定停止', negativeText: '取消', maskClosable: false, onPositiveClick: doStop }) || doStop() }
+function handleStop() { window.$gm?.dialog?.warning({ title: t('console.stopTitle'), content: t('console.stopContent'), positiveText: t('console.stopConfirm'), negativeText: t('console.cancel'), maskClosable: false, onPositiveClick: doStop }) || doStop() }
 async function handleRestart() {
   actionLoading.value = true
-  try { await restartClaw(); gm.success('已重启'); await fetchAll() } catch (e) { gm.error('重启失败: ' + e.message) } finally { actionLoading.value = false }
+  try { await restartClaw(); gm.success(t('console.restartSuccess')); await fetchAll() } catch (e) { gm.error(t('console.restartFailed') + ': ' + e.message) } finally { actionLoading.value = false }
 }
 async function doUninstall() {
   actionLoading.value = true
-  try { await uninstallClaw(); gm.success('已完全卸载'); setDeployed(false); sessionStorage.removeItem('deploy_token'); sessionStorage.removeItem('deploy_web_port'); sessionStorage.removeItem('deploy_setup_form'); router.replace('/console') }
-  catch (e) { gm.error('卸载失败: ' + e.message) } finally { actionLoading.value = false }
+  try { await uninstallClaw(); gm.success(t('console.uninstallSuccess')); setDeployed(false); sessionStorage.removeItem('deploy_token'); sessionStorage.removeItem('deploy_web_port'); sessionStorage.removeItem('deploy_setup_form'); router.replace('/console') }
+  catch (e) { gm.error(t('console.uninstallFailed') + ': ' + e.message) } finally { actionLoading.value = false }
 }
-function handleUninstall() { window.$gm?.dialog?.warning({ title: '卸载 OpenClaw', content: '将移除所有部署文件和配置数据，此操作不可撤销！', positiveText: '确定卸载', negativeText: '取消', maskClosable: false, onPositiveClick: () => doUninstall() }) || doUninstall() }
+function handleUninstall() { window.$gm?.dialog?.warning({ title: t('console.uninstallTitle'), content: t('console.uninstallContent'), positiveText: t('console.uninstallConfirm'), negativeText: t('console.cancel'), maskClosable: false, onPositiveClick: () => doUninstall() }) || doUninstall() }
 
 const configuredProviders = reactive({})
 const configuredDefault = ref('')

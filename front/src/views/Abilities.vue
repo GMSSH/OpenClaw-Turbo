@@ -8,9 +8,9 @@
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
               <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
             </svg>
-            技能
+            {{ t('skills.title') }}
           </h2>
-          <span class="header-hint">浏览和管理 AI 能力</span>
+          <span class="header-hint">{{ t('skills.subtitle') }}</span>
         </div>
         <button class="refresh-btn" @click="refreshAll()" :disabled="loadingBuiltin" title="刷新">
           <svg :class="{ spinning: loadingBuiltin }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
@@ -21,32 +21,41 @@
       <div class="main-tab-bar">
         <button class="main-tab" :class="{ active: mainTab === 'builtin' }" @click="mainTab = 'builtin'">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
-          内置
+          {{ t('skills.builtin') }}
+        </button>
+        <button class="main-tab" :class="{ active: mainTab === 'recommend' }" @click="mainTab = 'recommend'">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          推荐
         </button>
         <button class="main-tab" :class="{ active: mainTab === 'market' }" @click="mainTab = 'market'; checkClawHub()">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><polygon points="16.2,7.8 14.5,14.5 7.8,16.2 9.5,9.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-          市场
+          {{ t('skills.market') }}
+        </button>
+        <button class="main-tab" :class="{ active: mainTab === 'installed' }" @click="mainTab = 'installed'; fetchInstalled()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" stroke-width="1.5"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" stroke-width="1.5"/></svg>
+          {{ t('skills.installed') }}
+          <span v-if="installedSkills.length" class="tab-badge">{{ installedSkills.length }}</span>
         </button>
       </div>
 
       <!-- 搜索和筛选 -->
       <div v-if="mainTab === 'builtin'" class="filter-bar">
-        <n-input v-model:value="filterQuery" placeholder="搜索技能..." clearable size="medium" class="filter-input">
+        <n-input v-model:value="filterQuery" :placeholder="t('skills.searchPlaceholder')" clearable size="medium" class="filter-input">
           <template #prefix>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style="color:var(--jm-accent-4)"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </template>
         </n-input>
         <div v-if="mainTab === 'builtin'" class="filter-tabs">
-          <button class="filter-tab" :class="{ active: builtinFilter === 'all' }" @click="builtinFilter = 'all'">All ({{ builtinSkills.length }})</button>
-          <button class="filter-tab" :class="{ active: builtinFilter === 'enabled' }" @click="builtinFilter = 'enabled'">✓ 已启用 ({{ builtinReadyCount }})</button>
-          <button class="filter-tab" :class="{ active: builtinFilter === 'disabled' }" @click="builtinFilter = 'disabled'">未启用 ({{ builtinSkills.length - builtinReadyCount }})</button>
+          <button class="filter-tab" :class="{ active: builtinFilter === 'all' }" @click="builtinFilter = 'all'">{{ t('skills.allFilter', { count: builtinSkills.length }) }}</button>
+          <button class="filter-tab" :class="{ active: builtinFilter === 'enabled' }" @click="builtinFilter = 'enabled'">{{ t('skills.enabledFilter', { count: builtinReadyCount }) }}</button>
+          <button class="filter-tab" :class="{ active: builtinFilter === 'disabled' }" @click="builtinFilter = 'disabled'">{{ t('skills.disabledFilter', { count: builtinSkills.length - builtinReadyCount }) }}</button>
         </div>
       </div>
 
       <!-- ========== 内置技能面板 ========== -->
       <div v-if="mainTab === 'builtin'">
         <div v-if="loadingBuiltin" class="loading-state"><div class="loading-spinner"></div></div>
-        <div v-else-if="filteredBuiltinSkills.length === 0" class="empty-hint">暂无匹配的技能</div>
+        <div v-else-if="filteredBuiltinSkills.length === 0" class="empty-hint">{{ t('skills.noMatch') }}</div>
         <div v-else class="card-grid">
           <div v-for="skill in filteredBuiltinSkills" :key="skill.name" class="skill-card-v2" @click="openSkillDetail(skill)">
             <div class="card-top">
@@ -64,6 +73,39 @@
         </div>
       </div>
 
+      <!-- ========== 推荐技能面板 ========== -->
+      <div v-if="mainTab === 'recommend'">
+        <div v-if="loadingRecommend" class="loading-state"><div class="loading-spinner"></div></div>
+        <div v-else-if="recommendedSkillsData.length === 0" class="empty-hint">{{ t('skills.noRecommend') }}</div>
+        <div v-else class="card-grid">
+          <div
+            v-for="r in recommendedSkillsData"
+            :key="r.slug"
+            class="skill-card-v2"
+            @click="openRecommendDetail(r)"
+          >
+            <div class="card-top">
+              <div class="card-name-row">
+                <span class="card-emoji">📦</span>
+                <span class="card-name">{{ r.slug }}</span>
+              </div>
+              <n-switch
+                size="small"
+                :value="r.installed"
+                :loading="installingRecommend === r.slug"
+                :disabled="!r.zipExists"
+                @update:value="v => toggleRecommended(r.slug, v)"
+                @click.stop
+              />
+            </div>
+            <p class="card-desc">{{ truncate(locale === 'zh' ? r.descCn : r.descEn, 80) }}</p>
+            <div class="card-footer">
+              <span class="card-badge">{{ r.zipExists ? 'local' : 'unavailable' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ========== 技能市场面板 ========== -->
       <div v-if="mainTab === 'market'">
         <!-- clawhub 未安装提示 -->
@@ -74,11 +116,11 @@
             </svg>
           </div>
           <div class="banner-text">
-            <strong>需要安装 clawhub</strong>
-            <span>技能市场依赖 clawhub 工具，首次使用需安装一次（约 10 秒）</span>
+            <strong>{{ t('skills.clawhubRequired') }}</strong>
+            <span>{{ t('skills.clawhubDesc') }}</span>
           </div>
           <n-button type="primary" size="small" @click="doInstallClawHub" :loading="installingHub">
-            {{ installingHub ? '安装中...' : '一键安装' }}
+            {{ installingHub ? t('skills.clawhubInstalling') : t('skills.clawhubInstall') }}
           </n-button>
         </div>
 
@@ -86,7 +128,7 @@
         <div class="search-bar">
           <n-input
             v-model:value="searchQuery"
-            placeholder="搜索技能... 例如: github, video, notion"
+            :placeholder="t('skills.searchMarketPlaceholder')"
             clearable
             @keyup.enter="doSearch"
             size="medium"
@@ -99,56 +141,61 @@
               </svg>
             </template>
           </n-input>
-          <n-button type="primary" @click="doSearch" :loading="searching" :disabled="!searchQuery.trim() || !clawHubReady">搜索</n-button>
+          <n-button type="primary" @click="doSearch" :loading="searching" :disabled="!searchQuery.trim() || !clawHubReady">{{ t('skills.searchBtn') }}</n-button>
         </div>
 
-        <!-- 推荐技能 -->
-        <div class="recommend-section">
-          <span class="recommend-title">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-            推荐技能
-          </span>
-          <div class="recommend-grid">
-            <button v-for="r in recommendedSkills" :key="r.slug" class="recommend-chip" @click="doInstall(r.slug)" :disabled="installingSlug === r.slug">
-              <span class="chip-icon" v-html="r.icon"></span>
-              <span class="chip-info">
-                <span class="chip-name">{{ r.name }}</span>
-                <span class="chip-slug">{{ r.slug }}</span>
+        <!-- 限速提示 -->
+        <div class="ratelimit-banner">
+          <div class="ratelimit-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="var(--jm-warning-color, #f59e0b)" stroke-width="1.5"/>
+              <line x1="12" y1="8" x2="12" y2="12" stroke="var(--jm-warning-color, #f59e0b)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="16" r="0.8" fill="var(--jm-warning-color, #f59e0b)"/>
+            </svg>
+          </div>
+          <div class="ratelimit-text">
+            <span class="ratelimit-title">{{ t('skills.ratelimitTitle') }}</span>
+            <span class="ratelimit-desc">
+              {{ t('skills.ratelimitDesc') }}
+              <a href="https://clawhub.ai/" target="_blank" class="ratelimit-link">clawhub.ai</a>
+              {{ t('skills.ratelimitDesc2') }}
+              <span v-if="skillsDir" class="ratelimit-path" @click="openSkillsDir" title="点击打开目录">{{ skillsDir }}
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" style="margin-left:2px;flex-shrink:0">
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
               </span>
-            </button>
+              <span v-else class="ratelimit-path-placeholder">{{ t('skills.ratelimitPathPlaceholder') }}</span>
+              {{ t('skills.ratelimitSuffix') }}
+            </span>
           </div>
         </div>
+
 
         <!-- 二级 Tab 切换 -->
         <div class="tab-bar">
           <button class="tab-btn" :class="{ active: activeTab === 'search' }" @click="activeTab = 'search'">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.5"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            搜索结果
+            {{ t('skills.searchResults') }}
             <span v-if="searchResults.length" class="tab-count">{{ searchResults.length }}</span>
-          </button>
-          <button class="tab-btn" :class="{ active: activeTab === 'installed' }" @click="activeTab = 'installed'; fetchInstalled()">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" stroke-width="1.5"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" stroke-width="1.5"/></svg>
-            已安装
-            <span v-if="installedSkills.length" class="tab-count">{{ installedSkills.length }}</span>
           </button>
           <button class="tab-btn" :class="{ active: activeTab === 'explore' }" @click="activeTab = 'explore'; fetchExplore()">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><polygon points="16.2,7.8 14.5,14.5 7.8,16.2 9.5,9.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-            发现
+            {{ t('skills.discover') }}
           </button>
         </div>
 
         <!-- 搜索结果 -->
         <div v-if="activeTab === 'search'">
           <div v-if="searching" class="loading-state"><div class="loading-spinner"></div></div>
-          <div v-else-if="searchResults.length === 0 && hasSearched" class="empty-hint">没有找到相关技能</div>
-          <div v-else-if="searchResults.length === 0 && !hasSearched" class="empty-hint">输入关键词搜索技能</div>
+          <div v-else-if="searchResults.length === 0 && hasSearched" class="empty-hint">{{ t('skills.noSearchResults') }}</div>
+          <div v-else-if="searchResults.length === 0 && !hasSearched" class="empty-hint">{{ t('skills.searchHint') }}</div>
           <div v-else class="card-grid">
             <div v-for="skill in searchResults" :key="skill.slug" class="skill-card-v2">
               <div class="card-top">
                 <span class="card-name">{{ skill.name || skill.slug }}</span>
                 <div class="card-right">
-                  <n-button size="tiny" quaternary @click="viewDetail(skill.slug)">详情</n-button>
-                  <n-button size="tiny" type="primary" ghost @click="doInstall(skill.slug)" :loading="installingSlug === skill.slug">安装</n-button>
+                  <n-button size="tiny" quaternary @click="viewDetail(skill.slug)">{{ t('common.detail') }}</n-button>
+                  <n-button size="tiny" type="primary" ghost @click="doInstall(skill.slug)" :loading="installingSlug === skill.slug">{{ t('common.install') }}</n-button>
                 </div>
               </div>
               <p class="card-desc">{{ skill.slug }}</p>
@@ -160,37 +207,17 @@
           </div>
         </div>
 
-        <!-- 已安装 -->
-        <div v-if="activeTab === 'installed'">
-          <div v-if="loadingInstalled" class="loading-state"><div class="loading-spinner"></div></div>
-          <div v-else-if="installedSkills.length === 0" class="empty-hint">暂无已安装的技能</div>
-          <div v-else class="card-grid">
-            <div v-for="skill in installedSkills" :key="skill.slug" class="skill-card-v2">
-              <div class="card-top">
-                <span class="card-name">{{ skill.slug }}</span>
-                <div class="card-right">
-                  <n-button size="tiny" quaternary @click="viewDetail(skill.slug)">详情</n-button>
-                  <n-button size="tiny" type="error" quaternary @click="doUninstall(skill.slug)" :loading="installingSlug === skill.slug">卸载</n-button>
-                </div>
-              </div>
-              <div class="card-footer">
-                <span v-if="skill.version" class="card-badge">v{{ skill.version }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 最新推荐 -->
         <div v-if="activeTab === 'explore'">
           <div v-if="loadingExplore" class="loading-state"><div class="loading-spinner"></div></div>
-          <div v-else-if="exploreSkillsData.length === 0" class="empty-hint">暂无推荐</div>
+          <div v-else-if="exploreSkillsData.length === 0" class="empty-hint">{{ t('skills.noRecommend') }}</div>
           <div v-else class="card-grid">
             <div v-for="skill in exploreSkillsData" :key="skill.slug" class="skill-card-v2">
               <div class="card-top">
                 <span class="card-name">{{ skill.slug }}</span>
                 <div class="card-right">
-                  <n-button size="tiny" quaternary @click="viewDetail(skill.slug)">详情</n-button>
-                  <n-button size="tiny" type="primary" ghost @click="doInstall(skill.slug)" :loading="installingSlug === skill.slug">安装</n-button>
+                  <n-button size="tiny" quaternary @click="viewDetail(skill.slug)">{{ t('common.detail') }}</n-button>
+                  <n-button size="tiny" type="primary" ghost @click="doInstall(skill.slug)" :loading="installingSlug === skill.slug">{{ t('common.install') }}</n-button>
                 </div>
               </div>
               <p class="card-desc">{{ truncate(skill.description, 80) }}</p>
@@ -203,33 +230,55 @@
         </div>
       </div>
 
+      <!-- ========== 已安装面板 ========== -->
+      <div v-if="mainTab === 'installed'">
+        <div v-if="loadingInstalled" class="loading-state"><div class="loading-spinner"></div></div>
+        <div v-else-if="installedSkills.length === 0" class="empty-hint">{{ t('skills.noInstalled') }}</div>
+        <div v-else class="card-grid">
+          <div v-for="skill in installedSkills" :key="skill.slug" class="skill-card-v2" @click="openInstalledDetail(skill)">
+            <div class="card-top">
+              <div class="card-name-row">
+                <span class="card-emoji">📦</span>
+                <span class="card-name">{{ skill.name || skill.slug }}</span>
+              </div>
+              <n-button size="tiny" type="error" quaternary @click.stop="doUninstall(skill.slug)" :loading="installingSlug === skill.slug">{{ t('skills.uninstallBtn') }}</n-button>
+            </div>
+            <p v-if="skill.description" class="card-desc">{{ truncate(skill.description, 80) }}</p>
+            <div class="card-footer">
+              <span class="card-badge" style="opacity:1">{{ skill.version === 'unknown' ? t('skills.versionUnknown') : 'v' + skill.version }}</span>
+              <span v-if="skill.author" class="card-source">— {{ skill.author }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 技能详情弹框 -->
       <n-modal v-model:show="showSkillDetail" preset="card" :bordered="false" size="small" style="max-width: 480px;" :title="selectedSkill?.name || selectedSkill?.slug || ''" :mask-closable="true">
         <!-- Tab 切换 -->
         <div class="detail-tabs">
-          <button class="dtab" :class="{ active: detailTab === 'info' }" @click="detailTab = 'info'">信息</button>
-          <button v-if="!selectedSkill?.slug || isSelectedInstalled" class="dtab" :class="{ active: detailTab === 'config' }" @click="detailTab = 'config'; loadEnvVars()">配置</button>
+          <button class="dtab" :class="{ active: detailTab === 'info' }" @click="detailTab = 'info'">{{ t('skills.infoTab') }}</button>
+          <button v-if="!selectedSkill?.slug || isSelectedInstalled" class="dtab" :class="{ active: detailTab === 'config' }" @click="detailTab = 'config'; loadEnvVars()">{{ t('skills.configTab') }}</button>
         </div>
 
         <!-- 信息 Tab -->
         <div v-if="detailTab === 'info'" class="detail-content">
           <!-- 描述 -->
           <div class="info-section">
-            <div v-if="detailLoading" class="loading-inline"><div class="loading-spinner-sm"></div> 获取中...</div>
-            <p v-else class="info-desc">{{ skillDesc(selectedSkill) || selectedSkill?.summary || selectedSkill?.description || '暂无描述' }}</p>
+            <div v-if="detailLoading" class="loading-inline"><div class="loading-spinner-sm"></div> {{ t('common.loading') }}</div>
+            <p v-else class="info-desc">{{ skillDesc(selectedSkill) || selectedSkill?.summary || selectedSkill?.description || t('common.noData') }}</p>
           </div>
           <!-- 元信息 -->
           <div class="info-meta">
             <div class="meta-row">
-              <span class="meta-key">版本</span>
+              <span class="meta-key">{{ t('skills.versionLabel') }}</span>
               <span class="meta-val badge">{{ selectedSkill?.version || '1.0.0' }}</span>
             </div>
             <div class="meta-row">
-              <span class="meta-key">来源</span>
-              <span class="meta-val badge" :class="selectedSkill?.slug ? 'badge-market' : 'badge-builtin'">{{ selectedSkill?.slug ? '市场' : '内置' }}</span>
+              <span class="meta-key">{{ t('skills.sourceLabel') }}</span>
+              <span class="meta-val badge" :class="selectedSkill?.slug ? 'badge-market' : 'badge-builtin'">{{ selectedSkill?.slug ? t('skills.sourceMarket') : t('skills.sourceBuiltin') }}</span>
             </div>
             <div v-if="selectedSkill?.name" class="meta-row">
-              <span class="meta-key">标识</span>
+              <span class="meta-key">{{ t('skills.identLabel') }}</span>
               <span class="meta-val mono">{{ selectedSkill.name }}</span>
             </div>
           </div>
@@ -237,7 +286,7 @@
 
         <!-- 配置 Tab -->
         <div v-if="detailTab === 'config'" class="detail-content">
-          <p class="config-hint-top">部分技能需要配置 API 密钥或其他参数才能正常使用，可在此添加环境变量。</p>
+          <p class="config-hint-top">{{ t('skills.configHint') }}</p>
 
           <div class="env-list">
             <div v-for="(item, i) in envVars" :key="i" class="env-row">
@@ -250,14 +299,14 @@
             </div>
             <button class="env-add" @click="envVars.push({ key: '', value: '' })">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              添加变量
+              {{ t('skills.addEnvVar') }}
             </button>
           </div>
 
           <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
             <n-button type="primary" size="small" :loading="savingEnv" @click="doSaveEnvVars">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style="margin-right: 4px;"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" stroke-width="1.5"/><path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" stroke-width="1.5"/></svg>
-              保存配置
+              {{ t('common.saveConfig') }}
             </n-button>
           </div>
         </div>
@@ -268,20 +317,20 @@
             <div class="status-row" :class="{ on: selectedSkill?.enabled }">
               <svg v-if="selectedSkill?.enabled" viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" stroke="currentColor" stroke-width="2"/></svg>
-              {{ selectedSkill?.enabled ? '已启用' : '未启用' }}
+              {{ selectedSkill?.enabled ? t('skills.enabled') : t('skills.disabled') }}
             </div>
             <n-switch :value="selectedSkill?.enabled" :loading="builtinLoading === selectedSkill?.name" @update:value="v => { toggleBuiltin(selectedSkill.name, v) }" />
           </div>
           <div class="detail-footer" v-else-if="isSelectedInstalled">
             <span class="status-row on">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              已安装
+              {{ t('skills.alreadyInstalled') }}
             </span>
-            <n-button size="small" type="error" quaternary @click="doUninstall(selectedSkill.slug); showSkillDetail = false" :loading="installingSlug === selectedSkill?.slug">卸载</n-button>
+            <n-button size="small" type="error" quaternary @click="doUninstall(selectedSkill.slug); showSkillDetail = false" :loading="installingSlug === selectedSkill?.slug">{{ t('skills.uninstallBtn') }}</n-button>
           </div>
           <div class="detail-footer" v-else>
             <span></span>
-            <n-button type="primary" size="small" @click="doInstall(selectedSkill.slug); showSkillDetail = false" :loading="installingSlug === selectedSkill?.slug">安装此技能</n-button>
+            <n-button type="primary" size="small" @click="doInstall(selectedSkill.slug); showSkillDetail = false" :loading="installingSlug === selectedSkill?.slug">{{ t('skills.installBtn') }}</n-button>
           </div>
         </template>
       </n-modal>
@@ -293,16 +342,20 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NInput, NButton, NSwitch, NModal } from 'naive-ui'
 import {
   searchSkills, inspectSkill, installSkill, uninstallSkill,
   listInstalledSkills, exploreSkills,
-  listBuiltinSkills, installBuiltinSkill, uninstallBuiltinSkill,
+  listBuiltinSkills, installBuiltinSkill, uninstallBuiltinSkill, toggleBuiltinSkill,
+  listRecommendedSkills, installRecommendedSkill, uninstallRecommendedSkill,
   listEnvVars, saveEnvVars,
-  isClawHubInstalled, installClawHub
+  isClawHubInstalled, installClawHub, getSkillsDir
 } from '@/api/skill'
 import gm from '@/utils/gmssh'
 import cache from '@/stores/cache'
+
+const { t } = useI18n()
 
 const mainTab = ref('builtin')
 const filterQuery = ref('')
@@ -326,9 +379,9 @@ async function doInstallClawHub() {
   try {
     await installClawHub()
     clawHubReady.value = true
-    gm.success('clawhub 安装成功，现在可以使用技能市场了')
+    gm.success('clawhub ' + t('skills.clawhubInstallSuccess'))
   } catch (e) {
-    gm.error('安装失败: ' + (e.message || ''))
+    gm.error(t('skills.installFailed') + ': ' + (e.message || ''))
   } finally {
     installingHub.value = false
   }
@@ -356,9 +409,9 @@ async function doSaveEnvVars() {
   savingEnv.value = true
   try {
     await saveEnvVars({ vars })
-    gm.success('环境变量已保存')
+    gm.success(t('common.saveConfig'))
   } catch (e) {
-    gm.error('保存失败: ' + (e.message || ''))
+    gm.error(t('common.saveFailed') + ': ' + (e.message || ''))
   } finally {
     savingEnv.value = false
   }
@@ -496,34 +549,21 @@ async function fetchBuiltin() {
 }
 
 async function toggleBuiltin(name, enabled) {
-  if (enabled) {
-    await doInstallBuiltin(name)
-  } else {
-    await doUninstallBuiltin(name)
-  }
+  await doToggleBuiltin(name, enabled)
 }
 
-async function doInstallBuiltin(name) {
-  builtinLoading.value = name
+async function doToggleBuiltin(skillKey, enabled) {
+  builtinLoading.value = skillKey
   try {
-    const res = await installBuiltinSkill({ name })
-    if (res?.success) gm.success(res.message || `${name} 安装成功`)
+    const res = await toggleBuiltinSkill({ skillKey, enabled })
+    if (res?.success) gm.success(res.message || `${skillKey} ${enabled ? t('skills.installSuccess') : t('skills.uninstallSuccess')}`)
     await fetchBuiltin()
+    // 同步更新弹框中选中的技能状态
+    if (selectedSkill.value?.name === skillKey) {
+      selectedSkill.value = { ...selectedSkill.value, enabled }
+    }
   } catch (e) {
-    gm.error('安装失败: ' + (e.message || ''))
-  } finally {
-    builtinLoading.value = ''
-  }
-}
-
-async function doUninstallBuiltin(name) {
-  builtinLoading.value = name
-  try {
-    await uninstallBuiltinSkill({ name })
-    gm.success(`${name} 已卸载`)
-    await fetchBuiltin()
-  } catch (e) {
-    gm.error('卸载失败: ' + (e.message || ''))
+    gm.error((enabled ? t('skills.installFailed') : t('skills.uninstallFailed')) + ': ' + (e.message || ''))
   } finally {
     builtinLoading.value = ''
   }
@@ -544,17 +584,57 @@ const detailData = ref(null)
 const detailLoading = ref(false)
 
 
-const recommendedSkills = [
-  { slug: 'claw-shell', name: '执行命令', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="2" y="3" width="20" height="18" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M6 9l4 3-4 3M13 15h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  { slug: 'sql-toolkit', name: '数据库', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><ellipse cx="12" cy="5" rx="9" ry="3" stroke="currentColor" stroke-width="1.3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3M21 5v14c0 1.66-4.03 3-9 3s-9-1.34-9-3V5" stroke="currentColor" stroke-width="1.3"/></svg>' },
-  { slug: 'docker-essentials', name: 'Docker', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="1" y="8" width="22" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><rect x="5" y="11" width="3" height="3" stroke="currentColor" stroke-width="1"/><rect x="10" y="11" width="3" height="3" stroke="currentColor" stroke-width="1"/><rect x="15" y="11" width="3" height="3" stroke="currentColor" stroke-width="1"/><path d="M10 4h4v4h-4z" stroke="currentColor" stroke-width="1.3"/></svg>' },
-  { slug: 'playwright-scraper-skill', name: '网页爬虫', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.3"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2" stroke="currentColor" stroke-width="1.3"/></svg>' },
-  { slug: 'tavily-search', name: '智能搜索', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.3"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 8v6M8 11h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>' },
-  { slug: 'clawdbot-filesystem', name: '文件系统', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" stroke="currentColor" stroke-width="1.3"/></svg>' },
-  { slug: 'agentmail', name: 'Email', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M22 6l-10 7L2 6" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>' },
-  { slug: 'openclaw-memorybox', name: '终身记忆', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z" stroke="currentColor" stroke-width="1.3"/><line x1="9" y1="21" x2="15" y2="21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>' },
-  { slug: 'find-skills', name: '找技能', icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.3"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><polygon points="11,7 12.5,10 15,10.5 13,12.5 13.5,15 11,13.5 8.5,15 9,12.5 7,10.5 9.5,10" stroke="currentColor" stroke-width="1" fill="none"/></svg>' },
-]
+// ========== 推荐技能（从后端 scripts/ 加载） ==========
+const recommendedSkillsData = ref([])
+const loadingRecommend = ref(false)
+const installingRecommend = ref('')
+const locale = computed(() => t('_locale') === 'en' ? 'en' : 'zh')
+
+async function fetchRecommended() {
+  loadingRecommend.value = true
+  try {
+    const res = await listRecommendedSkills()
+    recommendedSkillsData.value = res?.skills || []
+  } catch (e) {
+    gm.error(t('common.loadFailed') + ': ' + (e.message || ''))
+  } finally {
+    loadingRecommend.value = false
+  }
+}
+
+async function toggleRecommended(slug, install) {
+  installingRecommend.value = slug
+  try {
+    const res = install
+      ? await installRecommendedSkill({ slug })
+      : await uninstallRecommendedSkill({ slug })
+    if (res?.success) {
+      gm.success(res.message || `${slug} ${install ? t('skills.installSuccess') : t('skills.uninstallSuccess')}`)
+      await fetchRecommended()
+      await fetchInstalled()
+      // 同步弹框中的状态
+      if (selectedSkill.value?.name === slug) {
+        selectedSkill.value = { ...selectedSkill.value, enabled: install }
+      }
+    }
+  } catch (e) {
+    gm.error((install ? t('skills.installFailed') : t('skills.uninstallFailed')) + ': ' + (e.message || ''))
+  } finally {
+    installingRecommend.value = ''
+  }
+}
+
+function openRecommendDetail(r) {
+  selectedSkill.value = {
+    name: r.slug,
+    icon: '📦',
+    description: r.descCn || r.descEn,
+    enabled: r.installed,
+    source: 'recommend',
+  }
+  detailTab.value = 'info'
+  showSkillDetail.value = true
+}
 
 async function doSearch() {
   if (!searchQuery.value.trim()) return
@@ -563,7 +643,7 @@ async function doSearch() {
   try {
     const res = await searchSkills({ query: searchQuery.value.trim() })
     searchResults.value = res?.skills || []
-  } catch (e) { gm.error('搜索失败: ' + (e.message || '')) }
+  } catch (e) { gm.error(t('skills.installFailed') + ': ' + (e.message || '')) }
   finally { searching.value = false }
 }
 
@@ -572,7 +652,7 @@ async function fetchInstalled() {
   try {
     const res = await listInstalledSkills()
     installedSkills.value = res?.skills || []
-  } catch (e) { gm.error('获取已安装技能失败: ' + (e.message || '')) }
+  } catch (e) { gm.error(t('skills.fetchInstalledFailed') + ': ' + (e.message || '')) }
   finally { loadingInstalled.value = false }
 }
 
@@ -581,8 +661,23 @@ async function fetchExplore() {
   try {
     const res = await exploreSkills()
     exploreSkillsData.value = res?.skills || []
-  } catch (e) { gm.error('获取推荐失败: ' + (e.message || '')) }
+  } catch (e) { gm.error(t('common.loadFailed') + ': ' + (e.message || '')) }
   finally { loadingExplore.value = false }
+}
+
+// 点击已安装技能：直接展示配置 Tab，不请求 clawhub
+function openInstalledDetail(skill) {
+  selectedSkill.value = {
+    slug:        skill.slug,
+    name:        skill.name || skill.slug,
+    description: skill.description || '',
+    version:     skill.version,
+    author:      skill.author,
+    source:      skill.source,
+  }
+  detailTab.value = 'config'
+  showSkillDetail.value = true
+  loadEnvVars()
 }
 
 async function viewDetail(slug) {
@@ -593,7 +688,7 @@ async function viewDetail(slug) {
   try {
     const res = await inspectSkill({ slug })
     selectedSkill.value = { ...selectedSkill.value, ...res, name: res.name || slug, description: res.summary || res.description || '' }
-  } catch (e) { gm.error('获取详情失败: ' + (e.message || '')); showSkillDetail.value = false }
+  } catch (e) { gm.error(t('skills.fetchDetailFailed') + ': ' + (e.message || '')); showSkillDetail.value = false }
   finally { detailLoading.value = false }
 }
 
@@ -601,8 +696,8 @@ async function doInstall(slug) {
   installingSlug.value = slug
   try {
     const res = await installSkill({ slug })
-    if (res?.success) { gm.success(res.message || `${slug} 安装成功`); await fetchInstalled() }
-  } catch (e) { gm.error('安装失败: ' + (e.message || '')) }
+    if (res?.success) { gm.success(res.message || `${slug} ${t('skills.installSuccess')}`); await fetchInstalled() }
+  } catch (e) { gm.error(t('skills.installFailed') + ': ' + (e.message || '')) }
   finally { installingSlug.value = '' }
 }
 
@@ -610,17 +705,49 @@ async function doUninstall(slug) {
   const gmApi = gm.getGmApi()
   const doIt = async () => {
     installingSlug.value = slug
-    try { await uninstallSkill({ slug }); gm.success(`${slug} 已卸载`); await fetchInstalled() }
-    catch (e) { gm.error('卸载失败: ' + (e.message || '')) }
+    try { await uninstallSkill({ slug }); gm.success(`${slug} ${t('skills.uninstallSuccess')}`); await fetchInstalled() }
+    catch (e) { gm.error(t('skills.uninstallFailed') + ': ' + (e.message || '')) }
     finally { installingSlug.value = '' }
   }
   if (gmApi?.dialog) {
-    gmApi.dialog.warning({ title: '卸载技能', content: `确定卸载「${slug}」吗？`, positiveText: '确定', negativeText: '取消', onPositiveClick: doIt })
-  } else { if (confirm(`确定卸载「${slug}」？`)) doIt() }
+    gmApi.dialog.warning({ title: t('skills.uninstallTitle'), content: t('skills.uninstallConfirm', { slug }), positiveText: t('common.confirm'), negativeText: t('common.cancel'), onPositiveClick: doIt })
+  } else { if (confirm(t('skills.uninstallConfirm', { slug }))) doIt() }
+}
+
+// ========== 技能目录 ==========
+const skillsDir = ref('')
+const skillsDirMode = ref('local')
+
+async function loadSkillsDir() {
+  try {
+    const res = await getSkillsDir()
+    skillsDir.value = res?.path || ''
+    skillsDirMode.value = res?.mode || 'local'
+  } catch {}
+}
+
+function openSkillsDir() {
+  if (!skillsDir.value) return
+  const gmApi = gm.getGmApi()
+  if (gmApi?.openFolder) {
+    gmApi.openFolder(skillsDir.value)
+  } else {
+    // fallback: 复制路径到剪贴板
+    navigator.clipboard?.writeText(skillsDir.value).then(() => {
+      gm.success(t('skills.skillsDir'))
+    }).catch(() => {
+        gm.info(t('skills.skillsDir') + ': ' + skillsDir.value)
+    })
+  }
 }
 
 onMounted(() => {
   checkClawHub()
+  loadSkillsDir()
+  // 预取已安装数量，用于角标显示
+  fetchInstalled()
+  // 载入推荐技能列表
+  fetchRecommended()
   if (cache.builtinSkills !== null) return
   fetchBuiltin()
 })
@@ -733,6 +860,40 @@ onMounted(() => {
 .card-score { font-size: 10px; color: var(--jm-warning-color, #ff9800); }
 .card-time { font-size: 10px; color: var(--jm-accent-4); margin-left: auto; }
 
+/* 推荐面板安装按钮 */
+.install-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 14px; border-radius: 8px; border: none;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  background: rgba(var(--jm-primary-1-rgb), 0.1);
+  color: var(--jm-primary-1);
+  transition: all 0.2s;
+}
+.install-btn:hover:not(:disabled) {
+  background: var(--jm-primary-1); color: #fff;
+  box-shadow: 0 3px 10px rgba(var(--jm-primary-1-rgb), 0.3);
+}
+.install-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.uninstall-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 14px; border-radius: 8px; border: none;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  background: rgba(var(--jm-error-color-rgb, 239,68,68), 0.08);
+  color: var(--jm-error-color, #ef4444);
+  transition: all 0.2s;
+}
+.uninstall-btn:hover:not(:disabled) {
+  background: rgba(var(--jm-error-color-rgb, 239,68,68), 0.18);
+  box-shadow: 0 3px 8px rgba(239,68,68, 0.2);
+}
+.uninstall-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.badge-installed {
+  display: inline-flex; align-items: center;
+  font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  background: rgba(72,199,142,0.12); color: #48c78e; flex-shrink: 0;
+}
+.spin { animation: spin 0.7s linear infinite; }
+
 /* 搜索筛选 */
 .filter-bar { display: flex; align-items: center; gap: 12px; }
 .filter-input { flex: 1; }
@@ -811,6 +972,43 @@ onMounted(() => {
 /* 搜索栏 */
 .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
 .search-bar .n-input { flex: 1; }
+
+/* 限速提示 */
+.ratelimit-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; border-radius: 10px; margin-bottom: 12px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+}
+.ratelimit-icon {
+  flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center;
+}
+.ratelimit-text {
+  flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px;
+  font-size: 12px; color: var(--jm-accent-5); line-height: 1.6;
+}
+.ratelimit-title {
+  font-weight: 600; color: var(--jm-warning-color, #f59e0b); white-space: nowrap;
+}
+.ratelimit-desc { flex: 1; min-width: 0; }
+.ratelimit-link {
+  color: var(--jm-primary-2); text-decoration: none; font-weight: 500;
+}
+.ratelimit-link:hover { text-decoration: underline; }
+.ratelimit-path {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+  color: var(--jm-primary-2); background: rgba(var(--jm-primary-1-rgb), 0.08);
+  padding: 1px 6px; border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(var(--jm-primary-1-rgb), 0.2);
+  transition: all 0.15s;
+}
+.ratelimit-path:hover { background: rgba(var(--jm-primary-1-rgb), 0.14); }
+.ratelimit-path-placeholder {
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+  color: var(--jm-accent-4);
+}
 
 /* 推荐技能 */
 .recommend-section { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }

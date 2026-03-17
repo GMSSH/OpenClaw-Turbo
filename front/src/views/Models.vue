@@ -9,9 +9,9 @@
               <path d="M12 2a7 7 0 017 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 017-7z" stroke="currentColor" stroke-width="1.5"/>
               <line x1="9" y1="21" x2="15" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            模型管理
+            {{ t('models.title') }}
           </h2>
-          <span class="header-hint">配置 AI 模型供应商与模型，分配给不同的 Agent 使用</span>
+          <span class="header-hint">{{ t('models.subtitle') }}</span>
         </div>
         <button class="refresh-btn" @click="loadConfig" :disabled="loading">
           <svg :class="{ spinning: loading }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
@@ -20,11 +20,11 @@
 
       <!-- 默认模型 -->
       <div class="default-model-section">
-        <span class="dm-label">全局默认模型</span>
+        <span class="dm-label">{{ t('models.globalDefault') }}</span>
         <n-select
           v-model:value="defaultModel"
           :options="allModelOptions"
-          placeholder="选择默认模型（Agent 未指定时使用）"
+          :placeholder="t('models.defaultPlaceholder')"
           size="small"
           style="flex:1"
           filterable
@@ -39,7 +39,7 @@
             <div class="ph-left">
               <span class="provider-name">{{ pid }}</span>
               <span class="provider-api">{{ provider.api || 'openai' }}</span>
-              <span class="model-count">{{ (provider.models || []).length }} 模型</span>
+              <span class="model-count">{{ t('models.modelCount', { count: (provider.models || []).length }) }}</span>
             </div>
             <div class="ph-right">
               <button class="icon-btn danger" @click.stop="confirmRemoveProvider(pid)">
@@ -52,7 +52,7 @@
             <!-- 供应商信息 -->
             <div class="provider-fields">
               <div class="pf-row">
-                <label>API 协议</label>
+                <label>{{ t('models.providerApiProtocol') }}</label>
                 <n-select v-model:value="provider.api" :options="apiModeOptions" size="small" style="width:200px" />
               </div>
               <div class="pf-row">
@@ -65,17 +65,17 @@
               </div>
             </div>
             <!-- 模型列表 -->
-            <div class="model-list-title">模型列表</div>
+            <div class="model-list-title">{{ t('models.modelList') }}</div>
             <div class="model-list">
               <div v-for="(model, i) in (provider.models || [])" :key="i" class="model-row">
-                <n-input v-model:value="model.id" size="small" placeholder="模型 ID，如 deepseek-chat" class="model-id-input" />
+                <n-input v-model:value="model.id" size="small" :placeholder="t('models.modelIdPlaceholder')" class="model-id-input" />
                 <button class="icon-btn danger sm" @click="provider.models.splice(i, 1)">
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 </button>
               </div>
               <button class="add-model-btn" @click="addModel(pid)">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                添加模型
+                {{ t('models.addModel') }}
               </button>
             </div>
           </div>
@@ -84,12 +84,12 @@
         <!-- 添加供应商 -->
         <button class="add-provider-btn" @click="showAddProvider = true">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          添加供应商
+          {{ t('models.addProvider') }}
         </button>
 
         <!-- 从预设添加 -->
         <div class="preset-section">
-          <span class="preset-label">快速添加预设供应商</span>
+          <span class="preset-label">{{ t('models.quickAddPreset') }}</span>
           <div class="preset-chips">
             <button
               v-for="p in availablePresets"
@@ -105,22 +105,22 @@
       <div class="save-bar">
         <n-button type="primary" @click="doSave" :loading="saving">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" style="margin-right:4px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" stroke-width="1.5"/><path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" stroke-width="1.5"/></svg>
-          保存配置
+          {{ t('common.saveConfig') }}
         </n-button>
       </div>
 
       <!-- 添加供应商弹框 -->
-      <n-modal v-model:show="showAddProvider" preset="card" :bordered="false" size="small" style="max-width:400px" title="添加供应商">
+      <n-modal v-model:show="showAddProvider" preset="card" :bordered="false" size="small" style="max-width:400px" :title="t('models.addProviderTitle')">
         <div style="display:flex;flex-direction:column;gap:12px">
-          <n-input v-model:value="newProvider.id" placeholder="供应商 ID（如 my-openai）" size="small" />
-          <n-select v-model:value="newProvider.api" :options="apiModeOptions" size="small" placeholder="API 协议" />
+          <n-input v-model:value="newProvider.id" :placeholder="t('models.providerIdPlaceholder')" size="small" />
+          <n-select v-model:value="newProvider.api" :options="apiModeOptions" size="small" :placeholder="t('models.providerApiProtocol')" />
           <n-input v-model:value="newProvider.baseUrl" placeholder="Base URL" size="small" />
-          <n-input v-model:value="newProvider.apiKey" placeholder="API Key（可选）" size="small" type="password" show-password-on="click" />
+          <n-input v-model:value="newProvider.apiKey" :placeholder="t('models.apiKeyOptional')" size="small" type="password" show-password-on="click" />
         </div>
         <template #footer>
           <div style="display:flex;justify-content:flex-end;gap:8px">
-            <n-button size="small" @click="showAddProvider = false">取消</n-button>
-            <n-button type="primary" size="small" :disabled="!newProvider.id.trim()" @click="doConfirmAddProvider">添加</n-button>
+            <n-button size="small" @click="showAddProvider = false">{{ t('common.cancel') }}</n-button>
+            <n-button type="primary" size="small" :disabled="!newProvider.id.trim()" @click="doConfirmAddProvider">{{ t('common.add') }}</n-button>
           </div>
         </template>
       </n-modal>
@@ -130,10 +130,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NButton, NInput, NSelect, NModal } from 'naive-ui'
 import { getModelsConfig, saveModelsConfig } from '@/api/model'
 import { MODEL_PROVIDERS } from '@/api/deploy'
 import gm from '@/utils/gmssh'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -144,13 +147,14 @@ const defaultModel = ref('')
 const showAddProvider = ref(false)
 const newProvider = reactive({ id: '', api: 'openai-completions', baseUrl: '', apiKey: '' })
 
-const apiModeOptions = [
-  { label: 'OpenAI 官方', value: 'openai' },
-  { label: 'OpenAI 兼容 (第三方平台)', value: 'openai-completions' },
-  { label: 'Anthropic (Claude 系列)', value: 'anthropic' },
-  { label: 'Gemini (Google 系列)', value: 'gemini' },
-  { label: 'Ollama (本地模型)', value: 'ollama' },
-]
+const apiModeOptions = computed(() => [
+  { label: t('models.apiModes.openai'), value: 'openai' },
+  { label: t('models.apiModes.openaiCompat'), value: 'openai-completions' },
+  { label: t('models.apiModes.anthropic'), value: 'anthropic' },
+  { label: t('models.apiModes.anthropicMessages'), value: 'anthropic-messages' },
+  { label: t('models.apiModes.gemini'), value: 'gemini' },
+  { label: t('models.apiModes.ollama'), value: 'ollama' },
+])
 
 // 所有配置的模型合成选项
 const allModelOptions = computed(() => {
@@ -186,7 +190,7 @@ async function loadConfig() {
       defaultModel.value = res.defaultModel
     }
   } catch (e) {
-    gm.error('加载模型配置失败: ' + (e.message || ''))
+    gm.error(t('models.loadFailed') + ': ' + (e.message || ''))
   } finally {
     loading.value = false
   }
@@ -200,7 +204,7 @@ function addModel(pid) {
 function confirmRemoveProvider(pid) {
   // 不允许删除包含默认模型的供应商
   if (defaultModel.value && defaultModel.value.startsWith(pid + '/')) {
-    gm.warning(`供应商「${pid}」包含当前默认模型，不允许删除`)
+    gm.warning(t('models.providerHasDefault', { id: pid }))
     return
   }
   delete providers[pid]
@@ -215,7 +219,7 @@ function doConfirmAddProvider() {
   const id = newProvider.id.trim()
   if (!id) return
   if (providers[id]) {
-    gm.warning(`供应商 "${id}" 已存在`)
+    gm.warning(t('models.providerExists', { id }))
     return
   }
   providers[id] = {
@@ -227,7 +231,7 @@ function doConfirmAddProvider() {
   expanded[id] = true
   showAddProvider.value = false
   newProvider.id = ''
-  newProvider.api = 'openai'
+  newProvider.api = 'openai-completions'
   newProvider.baseUrl = ''
   newProvider.apiKey = ''
 }
@@ -257,9 +261,9 @@ async function doSave() {
       models: modelsConfig,
       defaultModel: defaultModel.value,
     })
-    gm.success('模型配置已保存')
+    gm.success(t('models.saveSuccess'))
   } catch (e) {
-    gm.error('保存失败: ' + (e.message || ''))
+    gm.error(t('models.saveFailed') + ': ' + (e.message || ''))
   } finally {
     saving.value = false
   }
