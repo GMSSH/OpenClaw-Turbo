@@ -1,4 +1,4 @@
-# 🚀 OpenClaw-Turbo
+# 🚀 GMClaw
 
 🦞 **Your Personal AI Assistant**  
 An All-in-One Management Application Built on the [GMSSH](https://web.gmssh.com) Ecosystem 
